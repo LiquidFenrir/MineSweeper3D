@@ -6,8 +6,9 @@ MineSweeper::MineSweeper(C2D_SpriteSheet sheet)
 :
 width(MIN_SZ), height(MIN_SZ), bombpercent(MIN_BOMBS_PERCENT),
 selected_editing(Editing::Width),
-angleX(0.0f), angleY(0.0f), positionX(0.0f), positionZ(0.0f),
-playing(false), dead(false), win(false), looking_at_floor(false), stuff_changed(false)
+angleX(0.0f), angleY(0.0f), positionX(0.0f), positionZ(0.0f), rotate_speed_factor(ROTATE_SPEED_BASE_FACTOR),
+playing(false), dead(false), win(false), looking_at_floor(false), stuff_changed(false),
+in_controls(false), editing_control_type(EditingControls::ABXY), abxy_look(false), dpad_look(true), y_axis_inverted(false)
 {
     hidden_image = C2D_SpriteSheetGetImage(sheet, spritesheet_hidden_idx);
     open_image = C2D_SpriteSheetGetImage(sheet, spritesheet_open_idx);
@@ -26,6 +27,14 @@ playing(false), dead(false), win(false), looking_at_floor(false), stuff_changed(
     crosshair_image = C2D_SpriteSheetGetImage(sheet, spritesheet_crosshair_idx);
     win_image = C2D_SpriteSheetGetImage(sheet, spritesheet_win_idx);
     dead_image = C2D_SpriteSheetGetImage(sheet, spritesheet_dead_idx);
+    abxy_image = C2D_SpriteSheetGetImage(sheet, spritesheet_abxy_idx);
+    dpad_image = C2D_SpriteSheetGetImage(sheet, spritesheet_dpad_idx);
+    axis_image = C2D_SpriteSheetGetImage(sheet, spritesheet_axis_idx);
+    sensi_image = C2D_SpriteSheetGetImage(sheet, spritesheet_sensi_idx);
+    look_image = C2D_SpriteSheetGetImage(sheet, spritesheet_look_idx);
+    move_image = C2D_SpriteSheetGetImage(sheet, spritesheet_move_idx);
+    reg_image = C2D_SpriteSheetGetImage(sheet, spritesheet_reg_idx);
+    inv_image = C2D_SpriteSheetGetImage(sheet, spritesheet_inv_idx);
 
     for(int i = 0; i < 10; i++)
     {
@@ -39,7 +48,6 @@ playing(false), dead(false), win(false), looking_at_floor(false), stuff_changed(
     C2D_PlainImageTint(&back_tint, C2D_Color32f(0.125f, 0.125f, 0.125f, 1), 1.0f);
     C2D_PlainImageTint(&front_tint, C2D_Color32f(0.875f, 0.875f, 0.875f, 1), 1.0f);
     C2D_PlainImageTint(&selected_tint, C2D_Color32(255, 200, 76, 255), 1.0f);
-    C2D_PlainImageTint(&crosshair_tint, C2D_Color32(102, 255, 102, 160), 1.0f);
 }
 
 namespace {
@@ -81,7 +89,6 @@ void MineSweeper::generateBombs()
     around.clear();
     around.resize(size, 0);
 
-    DEBUGPRINT("resized vectors\n");
 
     for(int i = 0; i < bombs; i++)
     {
@@ -113,7 +120,6 @@ void MineSweeper::generateBombs()
         }
     }
 
-    DEBUGPRINT("generated bomb\n");
 
     for(auto& s : internal)
     {
@@ -121,7 +127,6 @@ void MineSweeper::generateBombs()
             s = ' ';
     }
     
-    DEBUGPRINT("generation complete\n");
 
 }
 void MineSweeper::checkAround(Coord point)
@@ -177,7 +182,6 @@ void MineSweeper::reveal()
 
     if(square == '.')
     {
-        DEBUGPRINT("hit bomb\n");
         for(short y = 0; y < height; y++)
         {
             for(short x = 0; x < width; x++)
@@ -188,7 +192,6 @@ void MineSweeper::reveal()
             }
         }
         dead = true;
-        DEBUGPRINT("done\n");
     }
     else
     {
@@ -240,7 +243,7 @@ static constexpr SubtexUVFPtr subtex_uv_funcs[6] = {
 void MineSweeper::lookDir(float x, float y)
 {
     angleX += x;
-    angleY += y;
+    angleY += y_axis_inverted ? -y : y;
     if(angleY < -90.0f)
     {
         angleY = -90.0f;
@@ -281,7 +284,85 @@ void MineSweeper::advance(float angle, float delta)
 
 void MineSweeper::renderGui()
 {
-    if(playing)
+    #define DRAW_WITH_SHADOW(img, x, y, zbase, tint) \
+        C2D_DrawImageAt(img, x + 1, y + 1, zbase, &back_tint); \
+        C2D_DrawImageAt(img, x - 1, y - 1, zbase + 0.125f, tint);
+
+    if(in_controls)
+    {
+        constexpr int icon_w = 96, icon_h = 58;
+        constexpr int icon_padding_y = 4;
+        constexpr int icon_base_x = (320 - 96 * 3 - 8 * 2)/2;
+        bool parts[3] = {
+            abxy_look,
+            dpad_look,
+            y_axis_inverted
+        };
+        C2D_Image* info[3] = {
+            &abxy_image,
+            &dpad_image,
+            &axis_image,
+        };
+        C2D_Image* on_false[3] = {
+            &move_image,
+            &move_image,
+            &reg_image,
+        };
+        C2D_Image* on_true[3] = {
+            &look_image,
+            &look_image,
+            &inv_image,
+        };
+        constexpr EditingControls edit[3] = {
+            EditingControls::ABXY,
+            EditingControls::DPAD,
+            EditingControls::YAxis,
+        };
+        
+
+        int y = 12;
+        for(int i = 0; i < 3; i++)
+        {
+            auto tint = edit[i] == editing_control_type ? &selected_tint : &front_tint;
+            DRAW_WITH_SHADOW(*(info[i]),
+                             icon_base_x + (icon_w - info[i]->subtex->width) / 2,
+                             y + (icon_h - info[i]->subtex->height) / 2,
+                            0.0f, tint);
+            DRAW_WITH_SHADOW(*(on_false[i]),
+                             icon_base_x + icon_w + 8 + (icon_w - on_false[i]->subtex->width) / 2,
+                             y + (icon_h - on_false[i]->subtex->height) / 2,
+                            0.5f, tint);
+            DRAW_WITH_SHADOW(*(on_true[i]),
+                             icon_base_x + icon_w * 2 + 8 * 2 + (icon_w - on_true[i]->subtex->width) / 2,
+                             y + (icon_h - on_true[i]->subtex->height) / 2,
+                            0.5f, tint);
+
+            DRAW_WITH_SHADOW(outline_image,
+                                icon_base_x + icon_w * (int(parts[i]) + 1) + 8 * (int(parts[i])  + 1),
+                                y - icon_padding_y/2,
+                            0.0f, tint);
+
+            y += icon_padding_y + icon_h;
+        }
+
+        auto tint = EditingControls::Sensitivity == editing_control_type ? &selected_tint : &front_tint;
+        DRAW_WITH_SHADOW(sensi_image,
+                         icon_base_x + (icon_w - sensi_image.subtex->width) / 2,
+                         y,
+                        0.0f, tint);
+        
+        constexpr u32 color_back = C2D_Color32f(0, 0, 0, 1);
+        constexpr u32 color_front = C2D_Color32f(0.875f, 0.875f, 0.875f, 1);
+        constexpr u32 color_selected = C2D_Color32(255, 200, 76, 255);
+        const u32 color = EditingControls::Sensitivity == editing_control_type ? color_selected : color_front;
+
+        int knob_x = icon_base_x + icon_w + 8 + int(rotate_speed_factor * 200.0f / 3.0f);
+        C2D_DrawRectSolid(icon_base_x + icon_w + 8 + 1, y + 12 + 1, 0.0f, 200.0f, 6.0f, color_back);
+        C2D_DrawRectSolid(icon_base_x + icon_w + 8 - 1, y + 12 - 1, 0.0f, 200.0f, 6.0f, color);
+        C2D_DrawRectSolid(knob_x + 1, y + 4 + 1, 0.0f, 10.0f, 24.0f, color_back);
+        C2D_DrawRectSolid(knob_x - 1, y + 4 - 1, 0.0f, 10.0f, 24.0f, color);
+    }
+    else if(playing)
     {
         if(win)
         {
@@ -391,12 +472,6 @@ void MineSweeper::renderLogo()
     constexpr float x = (400.0f - 128.0f) / 2.0f;
     constexpr float y = (240.0f - 128.0f) / 2.0f;
     C2D_DrawImageAt(logo_image, x, y, 0.0f);
-}
-void MineSweeper::renderCrosshair()
-{
-    constexpr float x = (400.0f - 32.0f) / 2.0f;
-    constexpr float y = (240.0f - 32.0f) / 2.0f;
-    C2D_DrawImageAt(crosshair_image, x, y, 1.0f, &crosshair_tint);
 }
 
 void MineSweeper::updateFloor()
@@ -513,7 +588,7 @@ void MineSweeper::updateCursorUVAndPos()
     {
         C3D_FVec pos = FVec3_New(x + cursor_dx[vert], -1.0f + (0.0625f/4.0f), y + cursor_dz[vert]);
         Vertex v(pos, cursor_u[vert], cursor_v[vert], normal_up);
-        vertices[vertices.size() - 6 + vert] = v;
+        vertices[vertices.size() - 12 + vert] = v;
     }
 }
 
@@ -548,6 +623,28 @@ void MineSweeper::updateCursorLookingAt()
             updateCursorUVAndPos();
             stuff_changed = true;
         }
+    }
+}
+
+void MineSweeper::generateCrosshair()
+{
+    constexpr float crosshair_dx[6] = {0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f};
+    constexpr float crosshair_dy[6] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f};
+
+    float crosshair_u[6];
+    float crosshair_v[6];
+    const Tex3DS_SubTexture* cross_subtex = crosshair_image.subtex;
+    for(int vert = 0; vert < 6; vert++)
+    {
+        subtex_uv_funcs[vert](cross_subtex, &crosshair_u[vert], &crosshair_v[vert]);
+    }
+    C3D_FVec normal_camera = FVec3_New(0.0f, 0.0f, 1.0f);
+    for(size_t vert = 0; vert < 6; vert++)
+    {
+        C3D_FVec pos = FVec3_New((crosshair_dx[vert] - 1.0f + 0.5f) / 8.0f, (crosshair_dy[vert] - 0.5f) / 8.0f, -1.0f);
+        Vertex v(pos, crosshair_u[vert], crosshair_v[vert], normal_camera);
+
+        vertices[vertices.size() - 6 + vert] = v;
     }
 }
 
@@ -682,11 +779,12 @@ void MineSweeper::generateVertices()
     // const float maxy = -miny;
     // const float maxx = -minx;
     const size_t layer_size = width * height;
-    const size_t vert_count = (1 + (width * 2 + height * 2) + layer_size * 2) * 6;
+    const size_t vert_count = (1 + 1 + (width * 2 + height * 2) + layer_size * 2) * 6;
 
     vertices.resize(vert_count);
 
-    generateCursor(0);
+    generateCrosshair();
+    generateCursor(0); // useless number
 
     size_t idx = 0;
     floor_idx = idx;
@@ -696,38 +794,153 @@ void MineSweeper::generateVertices()
 
 void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)  
 {
-    if(playing)
+    if(in_controls)
     {
-        if((kDown | kHeld) & KEY_LEFT)
+        if(kDown & KEY_UP)
+        {
+            switch(editing_control_type)
+            {
+                case EditingControls::ABXY:
+                {
+                    editing_control_type = EditingControls::Sensitivity;
+                }
+                break;
+                case EditingControls::DPAD:
+                {
+                    editing_control_type = EditingControls::ABXY;
+                }
+                break;
+                case EditingControls::YAxis:
+                {
+                    editing_control_type = EditingControls::DPAD;
+                }
+                break;
+                case EditingControls::Sensitivity:
+                {
+                    editing_control_type = EditingControls::YAxis;
+                }
+                break;
+            }
+        }
+        else if(kDown & KEY_DOWN)
+        {
+            switch(editing_control_type)
+            {
+                case EditingControls::ABXY:
+                {
+                    editing_control_type = EditingControls::DPAD;
+                }
+                break;
+                case EditingControls::DPAD:
+                {
+                    editing_control_type = EditingControls::YAxis;
+                }
+                break;
+                case EditingControls::YAxis:
+                {
+                    editing_control_type = EditingControls::Sensitivity;
+                }
+                break;
+                case EditingControls::Sensitivity:
+                {
+                    editing_control_type = EditingControls::ABXY;
+                }
+                break;
+            }
+        }
+        else if(kDown & KEY_LEFT)
+        {
+            switch(editing_control_type)
+            {
+                case EditingControls::ABXY:
+                {
+                    abxy_look = !abxy_look;
+                }
+                break;
+                case EditingControls::DPAD:
+                {
+                    dpad_look = !dpad_look;
+                }
+                break;
+                case EditingControls::YAxis:
+                {
+                    y_axis_inverted = !y_axis_inverted;
+                }
+                break;
+                case EditingControls::Sensitivity:
+                {
+                    rotate_speed_factor -= 0.125f;
+                    if(rotate_speed_factor < 0.0f)
+                    {
+                        rotate_speed_factor = 0.0f;
+                    }
+                }
+                break;
+            }
+        }
+        else if(kDown & KEY_RIGHT)
+        {
+            switch(editing_control_type)
+            {
+                case EditingControls::ABXY:
+                {
+                    abxy_look = !abxy_look;
+                }
+                break;
+                case EditingControls::DPAD:
+                {
+                    dpad_look = !dpad_look;
+                }
+                break;
+                case EditingControls::YAxis:
+                {
+                    y_axis_inverted = !y_axis_inverted;
+                }
+                break;
+                case EditingControls::Sensitivity:
+                {
+                    rotate_speed_factor += 0.125f;
+                    if(rotate_speed_factor > 3.0f)
+                    {
+                        rotate_speed_factor = 3.0f;
+                    }
+                }
+                break;
+            }
+        }
+    }
+    else if(playing)
+    {
+        if((kDown | kHeld) & getLookLeftKeys())
         {
             lookLeft(ROTATE_SPEED);
         }
-        else if((kDown | kHeld) & KEY_RIGHT)
+        else if((kDown | kHeld) & getLookRightKeys())
         {
             lookRight(ROTATE_SPEED);
         }
-        else if((kDown | kHeld) & KEY_UP)
+        else if((kDown | kHeld) & getLookUpKeys())
         {
             lookUp(ROTATE_SPEED);
         }
-        else if((kDown | kHeld) & KEY_DOWN)
+        else if((kDown | kHeld) & getLookDownKeys())
         {
             lookDown(ROTATE_SPEED);
         }
 
-        if((kDown | kHeld) & (KEY_X | KEY_CSTICK_UP)) // move forward
+        if((kDown | kHeld) & getMoveForwardKeys()) // move forward
         {
             goForward(MOVEMENT_SPEED);
         }
-        else if((kDown | kHeld) & (KEY_Y | KEY_CSTICK_LEFT)) // move left
+        else if((kDown | kHeld) & getMoveLeftKeys()) // move left
         {
             goLeft(MOVEMENT_SPEED);
         }
-        else if((kDown | kHeld) & (KEY_A | KEY_CSTICK_RIGHT)) // move right
+        else if((kDown | kHeld) & getMoveRightKeys()) // move right
         {
             goRight(MOVEMENT_SPEED);
         }
-        else if((kDown | kHeld) & (KEY_B | KEY_CSTICK_DOWN)) // move backwards
+        else if((kDown | kHeld) & getMoveBackwardsKeys()) // move backwards
         {
             goBackwards(MOVEMENT_SPEED);
         }
@@ -760,7 +973,6 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
                 }
                 
                 const int pos = XY_TO_IDX(looking_at_x, looking_at_y, this);
-                DEBUGPRINT("clicked on: '%c'\n", visible[pos]);
                 if(visible[pos] != 'f')
                 {
                     reveal();
@@ -805,10 +1017,8 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
     {
         if(kDown & KEY_A)
         {
-            DEBUGPRINT("A noplay\n");
             if(selected_editing == Editing::Ok)
             {
-                DEBUGPRINT("playing now\n");
                 playing = true;
                 stuff_changed = true;
                 looking_at_floor = false;
@@ -832,22 +1042,18 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
         }
         else if(kDown & KEY_X)
         {
-            DEBUGPRINT("X noplay\n");
             selected_editing = Editing::Width;
         }
         else if(kDown & KEY_Y)
         {
-            DEBUGPRINT("Y noplay\n");
             selected_editing = Editing::Height;
         }
         else if(kDown & KEY_B)
         {
-            DEBUGPRINT("B noplay\n");
             selected_editing = Editing::Bombs;
         }
         else if(kDown & KEY_UP)
         {
-            DEBUGPRINT("UP noplay\n");
             switch(selected_editing)
             {
                 case Editing::Width:
@@ -871,7 +1077,6 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
         }
         else if(kDown & KEY_DOWN)
         {
-            DEBUGPRINT("DOWN noplay\n");
             switch(selected_editing)
             {
                 case Editing::Width:
@@ -895,7 +1100,6 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
         }
         else if(kDown & KEY_LEFT)
         {
-            DEBUGPRINT("LEFT noplay\n");
             switch(selected_editing)
             {
                 case Editing::Width:
@@ -919,7 +1123,6 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
         }
         else if(kDown & KEY_RIGHT)
         {
-            DEBUGPRINT("RIGHT noplay\n");
             switch(selected_editing)
             {
                 case Editing::Width:

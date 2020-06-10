@@ -54,5 +54,5 @@ namespace LevelWide {
 
 namespace ThreeD {
     void bind();
-    void draw(float posX, float posZ, float angleX, float angleY, bool looking_at_floor);
+    void draw(float posX, float posZ, float angleX, float angleY, bool looking_at_floor, float iod);
 };

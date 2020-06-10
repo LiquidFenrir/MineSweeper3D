@@ -9,7 +9,7 @@ namespace ProgramWide {
     shaderProgram_s program;
 
     int uLoc_projection, uLoc_modelView;
-    C3D_Mtx projection;
+    C3D_Mtx constant_projection;
     C3D_Tex* sprites_tex = nullptr;
 
     void init(C3D_Tex* tex)
@@ -23,7 +23,7 @@ namespace ProgramWide {
         uLoc_projection   = shaderInstanceGetUniformLocation(program.vertexShader, "projection");
         uLoc_modelView    = shaderInstanceGetUniformLocation(program.vertexShader, "modelView");
 
-        Mtx_PerspTilt(&projection, C3D_AngleFromDegrees(60.0f), C3D_AspectRatioTop, 0.01f, 100.0f, false);
+        Mtx_PerspTilt(&constant_projection, C3D_AngleFromDegrees(50.0f), C3D_AspectRatioTop, 0.01f, 100.0f, false);
 
         // C3D_TexSetFilter(sprites_tex, GPU_LINEAR, GPU_NEAREST);
     }
@@ -141,25 +141,43 @@ namespace ThreeD {
         C3D_TexEnvInit(C3D_GetTexEnv(5));
     }
 
-    void draw(float posX, float posZ, float angleX, float angleY, bool looking_at_floor)
+    void draw(float posX, float posZ, float angleX, float angleY, bool looking_at_floor, float iod)
     {
-        // Calculate the modelView matrix
-        C3D_Mtx modelView;
-        Mtx_Identity(&modelView);
-        const auto angle = C3D_AngleFromDegrees(angleX - 90);
-        Mtx_RotateY(&modelView, angle, true);
-        Mtx_Rotate(&modelView, FVec3_New(cosf(angle), 0.0f, sinf(angle)), C3D_AngleFromDegrees(-angleY), true);
-        Mtx_Translate(&modelView, posX, 0.0f, posZ, true);
+        C3D_Mtx projection;
+        if(iod == 0.0f)
+            Mtx_Copy(&projection, &ProgramWide::constant_projection);
+        else
+            Mtx_PerspStereoTilt(&projection, C3D_AngleFromDegrees(50.0f), C3D_AspectRatioTop, 0.01f, 100.0f, iod, 2.0f, false);
+
+        // Update the uniforms
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, ProgramWide::uLoc_projection, &projection);
 
         LevelWide::lightPos.x = posX;
         LevelWide::lightPos.z = posZ;
         C3D_LightPosition(&LevelWide::light, &LevelWide::lightPos);
 
-        // Update the uniforms
-        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, ProgramWide::uLoc_projection, &ProgramWide::projection);
+        // Calculate the modelView matrix
+        C3D_Mtx modelView;
+        Mtx_Identity(&modelView);
+        const auto angle = C3D_AngleFromDegrees(angleX - 90);
+        const auto dir = FVec3_New(cosf(angle), 0.0f, sinf(angle));
+        Mtx_RotateY(&modelView, angle, true);
+        Mtx_Rotate(&modelView, dir, C3D_AngleFromDegrees(-angleY), true);
+        Mtx_Translate(&modelView, posX, 0.0f, posZ, true);
         C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, ProgramWide::uLoc_modelView,  &modelView);
 
-        const int count = LevelWide::vertex_count - (looking_at_floor ? 0 : 6);
-        C3D_DrawArrays(GPU_TRIANGLES, 0, count);
+        const int count = LevelWide::vertex_count - ((looking_at_floor ? 0 : 6) + 6);
+        C3D_DrawArrays(GPU_TRIANGLES, 0, count); // terrain + conditionally cursor
+
+        LevelWide::lightPos.x = 0.0f;
+        LevelWide::lightPos.z = 0.0f;
+        C3D_LightPosition(&LevelWide::light, &LevelWide::lightPos);
+
+        C3D_Mtx otherModelView;
+        Mtx_Identity(&otherModelView);
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, ProgramWide::uLoc_modelView,  &otherModelView);
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, ProgramWide::uLoc_projection, &ProgramWide::constant_projection);
+
+        C3D_DrawArrays(GPU_TRIANGLES, LevelWide::vertex_count - 6, 6); // crosshair
     }
 };

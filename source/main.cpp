@@ -11,12 +11,16 @@ int main()
 
     romfsInit();
     gfxInitDefault();
+    gfxSet3D(true); // Enable stereoscopic 3D
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
 
     // Initialize the render target
-    C3D_RenderTarget* top_screen = C3D_RenderTargetCreate(240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
-    C3D_RenderTargetSetOutput(top_screen, GFX_TOP, GFX_LEFT, DISPLAY_TRANSFER_FLAGS);
+    C3D_RenderTarget* top_screen_left = C3D_RenderTargetCreate(240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
+    C3D_RenderTargetSetOutput(top_screen_left, GFX_TOP, GFX_LEFT, DISPLAY_TRANSFER_FLAGS);
+    C3D_RenderTarget* top_screen_right = C3D_RenderTargetCreate(240, 400, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
+    C3D_RenderTargetSetOutput(top_screen_right, GFX_TOP, GFX_RIGHT, DISPLAY_TRANSFER_FLAGS);
+
     C3D_RenderTarget* bottom_screen = C3D_RenderTargetCreate(240, 320, GPU_RB_RGBA8, GPU_RB_DEPTH24_STENCIL8);
     C3D_RenderTargetSetOutput(bottom_screen, GFX_BOTTOM, GFX_LEFT, DISPLAY_TRANSFER_FLAGS);
 
@@ -36,6 +40,8 @@ int main()
         u32 kHeld = hidKeysHeld();
         if (kDown & KEY_START)
             break; // break in order to return to hbmenu
+        else if(kDown & KEY_SELECT)
+            mines.in_controls = !mines.in_controls;
 
         touchPosition touch;
         hidTouchRead(&touch);
@@ -43,18 +49,32 @@ int main()
 
         // Render the scene
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
-            C3D_RenderTargetClear(top_screen, C3D_CLEAR_ALL, CLEAR_COLOR_TOP, 0);
+            C3D_RenderTargetClear(top_screen_left, C3D_CLEAR_ALL, CLEAR_COLOR_TOP, 0);
+            C3D_RenderTargetClear(top_screen_right, C3D_CLEAR_ALL, CLEAR_COLOR_TOP, 0);
             C3D_RenderTargetClear(bottom_screen, C3D_CLEAR_ALL, CLEAR_COLOR_BOT, 0);
 
-            C3D_FrameDrawOn(top_screen);
-            C2D_SceneTarget(top_screen);
 
-            if(mines.playing) mines.renderTerrain();
-            
-            C2D_Prepare();
-            if(mines.playing) mines.renderCrosshair();
-            else mines.renderLogo();
-            C2D_Flush();
+            const float slider = osGet3DSliderState();
+            const float iod = slider/3;
+
+            C3D_FrameDrawOn(top_screen_left);
+            if(mines.playing)
+            {
+                mines.renderTerrain(-iod);
+                if(iod > 0.0f)
+                {
+                    C3D_FrameDrawOn(top_screen_right);
+                    mines.renderTerrain(iod);
+                }
+            }
+            else
+            {
+                C2D_SceneTarget(top_screen_left);
+
+                C2D_Prepare();
+                mines.renderLogo();
+                C2D_Flush();
+            }
 
             C3D_FrameDrawOn(bottom_screen);
             C2D_SceneTarget(bottom_screen);

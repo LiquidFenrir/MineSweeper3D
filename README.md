@@ -5,6 +5,9 @@ You're in a 3D world now, oh yeah! (note: this is NOT 3D minesweeper in the sens
 
 ## Controls
 
+Press START at any time to exit.  
+Press SELECT at any time to toggle the settings menu (look/move bindings, y-axis inversion, and look sensitivity).  
+
 At first, you can use X to edit the width of the level, Y to edit the height of the level, and B to edit the percentage of bombs.  
 A will select the play button, and another A press will launch the game!
 
