@@ -32,7 +32,7 @@ include $(DEVKITARM)/3ds_rules
 #     - <libctru folder>/default_icon.png
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	MineSweeper3D
-APP_DESCRIPTION	:=	Play minesweeeper as a walking player! Look around, and don't go boom
+APP_DESCRIPTION	:=	Play minesweeeper in first person!
 APP_AUTHOR	:=	LiquidFenrir
 
 TARGET		:=	MineSweeper3D
