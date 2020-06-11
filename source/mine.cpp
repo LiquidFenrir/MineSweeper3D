@@ -950,6 +950,7 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
             should_update_cursor = false;
             if(kDown & (KEY_L | KEY_R))
             {
+                gfxSet3D(false); // Disable stereoscopic 3D when in menu
                 playing = false;
             }
         }
@@ -1019,6 +1020,7 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
         {
             if(selected_editing == Editing::Ok)
             {
+                gfxSet3D(true); // Enable stereoscopic 3D when in level
                 playing = true;
                 stuff_changed = true;
                 looking_at_floor = false;

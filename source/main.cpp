@@ -11,7 +11,6 @@ int main()
 
     romfsInit();
     gfxInitDefault();
-    gfxSet3D(true); // Enable stereoscopic 3D
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
 
