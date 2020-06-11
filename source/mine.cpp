@@ -89,7 +89,6 @@ void MineSweeper::generateBombs()
     around.clear();
     around.resize(size, 0);
 
-
     for(int i = 0; i < bombs; i++)
     {
         int pos = rand() % size;
@@ -120,14 +119,11 @@ void MineSweeper::generateBombs()
         }
     }
 
-
     for(auto& s : internal)
     {
         if(s == '0')
             s = ' ';
     }
-    
-
 }
 void MineSweeper::checkAround(Coord point)
 {
@@ -393,22 +389,24 @@ void MineSweeper::renderGui()
 
         constexpr int icon_w = 64, icon_h = 64;
         constexpr int icon_padding_y = 8;
-        constexpr int icon_base_x = (320 - 64 - 96)/2, icon_base_y = (240 - (64 * 2) - (icon_padding_y * 1))/2;
+        constexpr int icon_base_x = (320 - 64 - (96 + 48))/2, icon_base_y = (240 - (64 * 2) - (icon_padding_y * 1))/2;
 
         y = icon_base_y;
         for(int i = 0; i < 2; i++)
         {
             C2D_DrawImageAt(*(icons[i]), icon_base_x + (icon_w - icons[i]->subtex->width) / 2, y + (icon_h - icons[i]->subtex->height) / 2, 0.0f);
             
-            C2D_DrawImageAt(outline_image, icon_base_x + 2 + icon_w + 4, y + 2, 0.0f, &back_tint);
+            C2D_DrawImageAt(outline_image, icon_base_x + icon_w + 4 + 1, y + 1, 0.0f, &back_tint, 1.5f, 1.0f);
 
-            C2D_DrawImageAt(outline_image, icon_base_x + icon_w + 4, y, 0.25f, &front_tint);
+            C2D_DrawImageAt(outline_image, icon_base_x + icon_w + 4 - 1, y - 1, 0.25f, &front_tint, 1.5f, 1.0f);
 
-            div_t hundreds = div(*(parts[i]), 100);
+            div_t thousands = div(*(parts[i]), 1000);
+            div_t hundreds = div(thousands.rem, 100);
             div_t smaller = div(hundreds.rem, 10);
-            C2D_DrawImageAt(numbers_images[hundreds.quot], icon_base_x + icon_w + 4 + 10, y + (64 - 32)/2, 0.5f);
-            C2D_DrawImageAt(numbers_images[smaller.quot], icon_base_x + icon_w + 4 + (96 - 32)/2, y + (64 - 32)/2, 0.5f);
-            C2D_DrawImageAt(numbers_images[smaller.rem], icon_base_x + icon_w + 4 + (96 - 32 - 10), y + (64 - 32)/2, 0.5f);
+            C2D_DrawImageAt(numbers_images[thousands.quot], icon_base_x + icon_w + 20, y + (64 - 32)/2, 0.5f);
+            C2D_DrawImageAt(numbers_images[hundreds.quot], icon_base_x + icon_w + 20 + 26, y + (64 - 32)/2, 0.5f);
+            C2D_DrawImageAt(numbers_images[smaller.quot], icon_base_x + icon_w + 20 + 26 * 2, y + (64 - 32)/2, 0.5f);
+            C2D_DrawImageAt(numbers_images[smaller.rem], icon_base_x + icon_w + 20 + 26 * 3, y + (64 - 32)/2, 0.5f);
 
             y += icon_padding_y + icon_h;
         }
@@ -1036,7 +1034,7 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
                 angleY = 0.0f;
                 positionX = 0.0f;
                 positionZ = 0.0f;
-                bombs = width * height / bombpercent;
+                bombs = bombpercent * width * height / 100;
                 generateVertices();
                 LevelWide::init(vertices);
             }
