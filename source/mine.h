@@ -38,7 +38,6 @@ struct MineSweeper {
     };
     std::vector<char> internal, visible;
     std::vector<signed char> around;
-    std::vector<Vertex> vertices;
 
     static constexpr size_t cursor_idx = 0, cursor_vert_count = 6;
     size_t floor_idx;
@@ -61,7 +60,8 @@ struct MineSweeper {
     bool win;
     bool looking_at_floor;
     bool should_update_cursor;
-    bool stuff_changed;
+    bool should_update_cursor_verts;
+    bool floor_changed;
     bool generated;
     bool in_controls;
 
@@ -69,6 +69,8 @@ struct MineSweeper {
     bool abxy_look;
     bool dpad_look;
     bool y_axis_inverted;
+
+    u64 end_time;
 
     C2D_Image hidden_image,
               open_image,
@@ -162,9 +164,9 @@ struct MineSweeper {
     void placeFlag();
 
     void generateCrosshair();
-    void generateCursor(int looking_at_idx);
-    void generateFloorLayers(size_t& idx, size_t layer_size);
-    void generateWalls(size_t& idx);
+    void generateCursor();
+    void generateFloorLayers(size_t layer_size);
+    void generateWalls();
     void generateVertices();
 
     void renderTerrain(float iod)
@@ -176,7 +178,7 @@ struct MineSweeper {
     void renderLogo();
 
     void updateFloor();
-    void updateCursorUVAndPos();
+    void updateCursorUVAndPos(Vertex* store_in);
     void updateCursorLookingAt();
 
     void lookDir(float x, float y);

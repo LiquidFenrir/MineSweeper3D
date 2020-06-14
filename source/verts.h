@@ -47,8 +47,11 @@ namespace ProgramWide {
 };
 
 namespace LevelWide {
-    void init(const std::vector<Vertex>& vertices);
-    void set_verts(const std::vector<Vertex>& vertices);
+    void init(size_t count, int w, int h);
+    Vertex* get_floor_verts();
+    Vertex* get_wall_verts();
+    Vertex* get_cursor_verts();
+    Vertex* get_crosshair_verts();
     void exit();
 };
 

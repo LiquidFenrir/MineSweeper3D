@@ -7,7 +7,7 @@ MineSweeper::MineSweeper(C2D_SpriteSheet sheet)
 width(MIN_SZ), height(MIN_SZ), bombpercent(MIN_BOMBS_PERCENT),
 selected_editing(Editing::Width),
 angleX(0.0f), angleY(0.0f), positionX(0.0f), positionZ(0.0f), rotate_speed_factor(ROTATE_SPEED_BASE_FACTOR),
-playing(false), dead(false), win(false), looking_at_floor(false), stuff_changed(false),
+playing(false), dead(false), win(false), looking_at_floor(false), floor_changed(false),
 in_controls(false), editing_control_type(EditingControls::ABXY), abxy_look(false), dpad_look(true), y_axis_inverted(false)
 {
     hidden_image = C2D_SpriteSheetGetImage(sheet, spritesheet_hidden_idx);
@@ -187,7 +187,12 @@ void MineSweeper::reveal()
                     visible[idx] = '#';
             }
         }
+        should_update_cursor = false;
+        should_update_cursor_verts = false;
+        looking_at_floor = false;
         dead = true;
+        end_time = osGetTime();
+        DEBUGPRINT("lose!\n");
     }
     else
     {
@@ -207,7 +212,12 @@ void MineSweeper::reveal()
                 }
             }
         }
+        should_update_cursor = false;
+        should_update_cursor_verts = false;
+        looking_at_floor = false;
         win = true;
+        end_time = osGetTime();
+        DEBUGPRINT("win!\n");
     }
 }
 
@@ -265,7 +275,7 @@ void MineSweeper::advance(float angle, float delta)
 
     const float mX = get_terrain_min_x();
     const float mY = get_terrain_min_y();
-    constexpr float proximity = 0.25f;
+    constexpr float proximity = 0.5f;
     if(pos.x <= (mX + proximity) || pos.x > (-mX - proximity) || pos.z <= (mY + proximity) || pos.z > (-mY - proximity)) return;
     positionX = pos.x;
     positionZ = pos.z;
@@ -474,6 +484,8 @@ void MineSweeper::renderLogo()
 
 void MineSweeper::updateFloor()
 {
+    auto vertices = LevelWide::get_floor_verts();
+
     const float miny = get_terrain_min_y();
     const float minx = get_terrain_min_x();
     // const float maxy = -miny;
@@ -563,7 +575,7 @@ void MineSweeper::updateFloor()
     }
 }
 
-void MineSweeper::updateCursorUVAndPos()
+void MineSweeper::updateCursorUVAndPos(Vertex* store_in)
 {
     float cursor_u[6];
     float cursor_v[6];
@@ -586,7 +598,7 @@ void MineSweeper::updateCursorUVAndPos()
     {
         C3D_FVec pos = FVec3_New(x + cursor_dx[vert], -1.0f + (0.0625f/4.0f), y + cursor_dz[vert]);
         Vertex v(pos, cursor_u[vert], cursor_v[vert], normal_up);
-        vertices[vertices.size() - 12 + vert] = v;
+        store_in[vert] = v;
     }
 }
 
@@ -615,17 +627,23 @@ void MineSweeper::updateCursorLookingAt()
 
             if(x < 0 || y < 0 || total < 0 || x >= width || y >= height) return;
 
+            looking_at_floor = true;
+            if(x == looking_at_x && y == looking_at_y) return;
+
+            framectr = 0;
+            cursor_frame = 0;
+            cursor_frame_dir = 1;
             looking_at_x = x;
             looking_at_y = y;
-            looking_at_floor = true;
-            updateCursorUVAndPos();
-            stuff_changed = true;
+            should_update_cursor_verts = true;
         }
     }
 }
 
 void MineSweeper::generateCrosshair()
 {
+    auto vertices = LevelWide::get_crosshair_verts();
+
     constexpr float crosshair_dx[6] = {0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f};
     constexpr float crosshair_dy[6] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f};
 
@@ -639,20 +657,21 @@ void MineSweeper::generateCrosshair()
     C3D_FVec normal_camera = FVec3_New(0.0f, 0.0f, 1.0f);
     for(size_t vert = 0; vert < 6; vert++)
     {
-        C3D_FVec pos = FVec3_New((crosshair_dx[vert] - 1.0f + 0.5f) / 8.0f, (crosshair_dy[vert] - 0.5f) / 8.0f, -1.0f);
+        C3D_FVec pos = FVec3_New((crosshair_dx[vert] - 1.0f + 0.5f) / 16.0f, ((crosshair_dy[vert] - 0.5f) / 16.0f), -0.5f);
         Vertex v(pos, crosshair_u[vert], crosshair_v[vert], normal_camera);
 
-        vertices[vertices.size() - 6 + vert] = v;
+        vertices[6 - vert - 1] = v;
     }
 }
 
-void MineSweeper::generateCursor(int looking_at_idx)
+void MineSweeper::generateCursor()
 {
-    updateCursorUVAndPos();
+    updateCursorUVAndPos(LevelWide::get_cursor_verts());
 }
 
-void MineSweeper::generateFloorLayers(size_t& idx, size_t layer_size)
+void MineSweeper::generateFloorLayers(size_t layer_size)
 {
+    auto vertices = LevelWide::get_floor_verts();
     const float miny = get_terrain_min_y();
     const float minx = get_terrain_min_x();
     // const float maxy = -miny;
@@ -684,7 +703,8 @@ void MineSweeper::generateFloorLayers(size_t& idx, size_t layer_size)
         }
     }
 
-    C3D_FVec normal_floor_up = FVec3_New(0.0f, 1.0f, 0.0f);
+    size_t idx = 0;
+    const C3D_FVec normal_floor_up = FVec3_New(0.0f, 1.0f, 0.0f);
     for(size_t layer = 0; layer < 2; layer++)
     {
         float x = minx;
@@ -709,8 +729,9 @@ void MineSweeper::generateFloorLayers(size_t& idx, size_t layer_size)
     }
 }
 
-void MineSweeper::generateWalls(size_t& idx)
+void MineSweeper::generateWalls()
 {
+    auto vertices = LevelWide::get_wall_verts();
     const float miny = get_terrain_min_y();
     const float minx = get_terrain_min_x();
     const float maxy = -miny;
@@ -727,27 +748,27 @@ void MineSweeper::generateWalls(size_t& idx)
         subtex_uv_funcs[vert](wall_subtex, &wall_u[vert], &wall_v[vert]);
     }
 
-    C3D_FVec normal_wall_at_left = FVec3_New(+1.0f, 0.0f, 0.0f);
-    C3D_FVec normal_wall_at_right = FVec3_New(-1.0f, 0.0f, 0.0f);
-    C3D_FVec normal_wall_at_top = FVec3_New(0.0f, 0.0f, +1.0f);
-    C3D_FVec normal_wall_at_bottom = FVec3_New(0.0f, 0.0f, -1.0f);
+    const C3D_FVec normal_wall_at_left = FVec3_New(+1.0f, 0.0f, 0.0f);
+    const C3D_FVec normal_wall_at_right = FVec3_New(-1.0f, 0.0f, 0.0f);
+    const C3D_FVec normal_wall_at_top = FVec3_New(0.0f, 0.0f, +1.0f);
+    const C3D_FVec normal_wall_at_bottom = FVec3_New(0.0f, 0.0f, -1.0f);
 
+    size_t idx = 0;
     for(int i = 0; i < width; i++)
     {
         const float x = float(i) + minx;
         for(size_t vert = 0; vert < 6; vert++)
         {
-            C3D_FVec poshi = FVec3_New(x + wall_deltadir[vert], -1.0f + wall_dy[vert], miny + 0.0625f/4.0f);
+            C3D_FVec poshi = FVec3_New(x + wall_deltadir[6 - vert - 1], -1.0f + wall_dy[6 - vert - 1], miny + 0.0625f/4.0f);
             C3D_FVec poslo = FVec3_New(x + wall_deltadir[vert], -1.0f + wall_dy[vert], maxy - 0.0625f/4.0f);
 
-            Vertex hi(poshi, wall_u[vert], wall_v[vert], normal_wall_at_top);
+            Vertex hi(poshi, wall_u[6 - vert - 1], wall_v[6 - vert - 1], normal_wall_at_top);
             Vertex lo(poslo, wall_u[vert], wall_v[vert], normal_wall_at_bottom);
 
-            vertices[idx + 0] = hi;
-            vertices[idx + 6] = lo;
-            idx++;
+            vertices[idx + 0 + ((3 + vert) % 6)] = hi;
+            vertices[idx + 6 + vert] = lo;
         }
-        idx += 6;
+        idx += 12;
     }
 
     for(int i = 0; i < height; i++)
@@ -756,22 +777,20 @@ void MineSweeper::generateWalls(size_t& idx)
         for(size_t vert = 0; vert < 6; vert++)
         {
             C3D_FVec poshi = FVec3_New(minx + 0.0625f/4.0f, -1.0f + wall_dy[vert], y + wall_deltadir[vert]);
-            C3D_FVec poslo = FVec3_New(maxx - 0.0625f/4.0f, -1.0f + wall_dy[vert], y + wall_deltadir[vert]);
+            C3D_FVec poslo = FVec3_New(maxx - 0.0625f/4.0f, -1.0f + wall_dy[6 - vert - 1], y + wall_deltadir[6 - vert - 1]);
             
             Vertex hi(poshi, wall_u[vert], wall_v[vert], normal_wall_at_left);
-            Vertex lo(poslo, wall_u[vert], wall_v[vert], normal_wall_at_right);
+            Vertex lo(poslo, wall_u[6 - vert - 1], wall_v[6 - vert - 1], normal_wall_at_right);
             
-            vertices[idx + 0] = hi;
-            vertices[idx + 6] = lo;
-            idx += 1;
+            vertices[idx + 0 + ((3 + vert) % 6)] = hi;
+            vertices[idx + 6 + vert] = lo;
         }
-        idx += 6;
+        idx += 12;
     }
 }
 
 void MineSweeper::generateVertices()
 {
-    vertices.clear();
     const float miny = get_terrain_min_y();
     const float minx = get_terrain_min_x();
     // const float maxy = -miny;
@@ -779,15 +798,13 @@ void MineSweeper::generateVertices()
     const size_t layer_size = width * height;
     const size_t vert_count = (1 + 1 + (width * 2 + height * 2) + layer_size * 2) * 6;
 
-    vertices.resize(vert_count);
+    LevelWide::init(vert_count, width, height);
 
     generateCrosshair();
-    generateCursor(0); // useless number
+    generateCursor();
 
-    size_t idx = 0;
-    floor_idx = idx;
-    generateFloorLayers(idx, layer_size);
-    generateWalls(idx);
+    generateFloorLayers(layer_size);
+    generateWalls();
 }
 
 void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)  
@@ -946,7 +963,7 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
         if(dead || win)
         {
             should_update_cursor = false;
-            if(kDown & (KEY_L | KEY_R))
+            if((end_time + 500ULL) <= osGetTime() && kDown & (KEY_L | KEY_R))
             {
                 gfxSet3D(false); // Disable stereoscopic 3D when in menu
                 playing = false;
@@ -959,8 +976,7 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
                 if(generated)
                 {
                     placeFlag();
-                    stuff_changed = true;
-                    updateFloor();
+                    floor_changed = true;
                 }
             }
             else if(kDown & KEY_R) // Reveal a square
@@ -975,7 +991,7 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
                 if(visible[pos] != 'f')
                 {
                     reveal();
-                    updateFloor();
+                    floor_changed = true;
                 }
             }
         }
@@ -1001,15 +1017,20 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
                 {
                     cursor_frame_dir = 1;
                 }
-                updateCursorUVAndPos();
-                stuff_changed = true;
+                should_update_cursor_verts = true;
             }
         }
 
-        if(stuff_changed)
+        if(should_update_cursor_verts)
         {
-            LevelWide::set_verts(vertices);
-            stuff_changed = false;
+            updateCursorUVAndPos(LevelWide::get_cursor_verts());
+            should_update_cursor_verts = false;
+        }
+
+        if(floor_changed)
+        {
+            updateFloor();
+            floor_changed = false;
         }
     }
     else
@@ -1020,9 +1041,10 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
             {
                 gfxSet3D(true); // Enable stereoscopic 3D when in level
                 playing = true;
-                stuff_changed = true;
+                floor_changed = false;
                 looking_at_floor = false;
                 should_update_cursor = false;
+                should_update_cursor_verts = false;
                 generated = false;
                 cursor_frame = 0;
                 cursor_frame_dir = 1;
@@ -1036,7 +1058,6 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
                 positionZ = 0.0f;
                 bombs = bombpercent * width * height / 100;
                 generateVertices();
-                LevelWide::init(vertices);
             }
             else selected_editing = Editing::Ok;
         }

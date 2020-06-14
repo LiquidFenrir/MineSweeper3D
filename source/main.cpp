@@ -2,15 +2,18 @@
 #include "mine.h"
 #include "spritesheet.h"
 
+u32 __stacksize__ = 128 * 1024;
+
 int main()
 {
     // Initialize libs
-    consoleDebugInit(debugDevice_SVC);
 
     srand(time(nullptr));
 
     romfsInit();
     gfxInitDefault();
+    // consoleInit(GFX_BOTTOM, nullptr);
+    consoleDebugInit(debugDevice_SVC);
     C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
     C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
 
@@ -46,12 +49,20 @@ int main()
         hidTouchRead(&touch);
         mines.update(kDown, kHeld, touch);
 
+        /*
+        printf("\x1b[2;1HCPU:     %6.2f%%\x1b[K", C3D_GetProcessingTime()*6.0f);
+        printf("\x1b[3;1HGPU:     %6.2f%%\x1b[K", C3D_GetDrawingTime()*6.0f);
+        printf("\x1b[4;1HCmdBuf:  %6.2f%%\x1b[K", C3D_GetCmdBufUsage()*100.0f);
+        printf("\x1b[6;1HWidth:  %2d\x1b[K", mines.width);
+        printf("\x1b[7;1HHeight:  %2d\x1b[K", mines.height);
+        printf("\x1b[8;1HBomb %%:  %2d%%\x1b[K", mines.bombpercent);
+        */
+
         // Render the scene
         C3D_FrameBegin(C3D_FRAME_SYNCDRAW);
             C3D_RenderTargetClear(top_screen_left, C3D_CLEAR_ALL, CLEAR_COLOR_TOP, 0);
             C3D_RenderTargetClear(top_screen_right, C3D_CLEAR_ALL, CLEAR_COLOR_TOP, 0);
             C3D_RenderTargetClear(bottom_screen, C3D_CLEAR_ALL, CLEAR_COLOR_BOT, 0);
-
 
             const float slider = osGet3DSliderState();
             const float iod = slider/3;

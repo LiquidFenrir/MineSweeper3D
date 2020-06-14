@@ -1,13 +1,21 @@
 ; Example PICA200 vertex shader
 
 ; Uniforms
-.fvec projection[4], modelView[4]
+.fvec projection[4], modelView[4], cameraPos
 
 ; Constants
-.constf myconst(0.0, 1.0, -1.0, 0.5)
+.constf myconst(0.0, 1.0, 30.0, 0.5)
+.constf ssinfo(3.0, -2.0, -240.0, 0.000442477)
 .alias  zeros myconst.xxxx ; Vector full of zeros
 .alias  ones  myconst.yyyy ; Vector full of ones
 .alias  half  myconst.wwww
+
+; .alias distfromcam r8
+.alias fall myconst.zzzz
+.alias ssA ssinfo.xxxx
+.alias ssB ssinfo.yyyy
+.alias sssubtr ssinfo.zzzz
+.alias ssunder ssinfo.wwww
 
 ; Outputs
 .out outpos position
@@ -21,10 +29,19 @@
 .in intex v1
 .in innrm v2
 
-.proc main
+.entry vmain
+.proc vmain
 	; Force the w component of inpos to be 1.0
-	mov r0.xyz, inpos
-	mov r0.w,   ones
+	add r0.xz, cameraPos.xz, inpos.xz
+	add r0.xz, -cameraPos.wy,  r0.xz
+	mov r0.y,  inpos.y
+	mov r0.w,  ones
+
+	; distfromcam = cameraSize [h/2 : w/2] + inpos [-w/2, w/2][-h/2, h/2] = inpos [0, w][0, h]
+	; add distfromcam.xz,	-cameraPos.wy, inpos.xz
+	; distfromcam = inpos [0, w][0, h] - cameraPos [0, w][0, h] = relativePos
+	; add distfromcam.xz, cameraPos.xz, distfromcam.xz
+	call smoothstep
 
 	; r1 = modelView * inpos
 	dp4 r1.x, modelView[0], r0
@@ -71,4 +88,39 @@ degenerate:
 
 	; We're finished
 	end
+.end
+
+; many thanks to https://www.youtube.com/watch?v=60VoL-F-jIQ
+; use:
+; - distfromcam
+; - r0.y as the output
+; - r8, r9 as scratch
+.proc smoothstep
+	mul r9.x, r0.x, r0.x
+	mul r8.x, r0.z, r0.z
+	add r9.xxxx, r9.x, r8.x
+	; r9 = raw magnitude of r0
+
+	; r9 = (r9 - t1)
+	add r9, sssubtr, r9
+	; r9 = r9/(t2 - t1)
+	mul r9, ssunder, r9
+
+	; r8 = max(0, min(1, r9))
+	min r8, ones, r9
+	max r8, zeros, r8
+
+	; r9 = (3 - (2 * k))
+	mul r9, ssB, r8
+	add r9, ssA, r9
+
+	; r8 = (k * k)
+	mul r8, r8, r8
+
+	; r8 = (k * k) * (3 - (2 * k)) = r8 * r9
+	mul r8, r8, r9
+
+	mul r8, -fall, r8
+
+	add r0.y, r8.x, r0.y
 .end
