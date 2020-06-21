@@ -966,6 +966,7 @@ void MineSweeper::update(u32 kDown, u32 kHeld, touchPosition touch)
             if((end_time + 500ULL) <= osGetTime() && kDown & (KEY_L | KEY_R))
             {
                 gfxSet3D(false); // Disable stereoscopic 3D when in menu
+                LevelWide::exit();
                 playing = false;
             }
         }
