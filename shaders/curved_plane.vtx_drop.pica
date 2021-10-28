@@ -1,0 +1,54 @@
+; PICA200 vertex shader for curvature
+
+.fvec projection[4]
+.fvec view[4]
+.fvec model[4]
+.fvec arraycolor
+
+; Constants
+.constf myconstA(0.0625, 1.0, 0.0, -81.0)
+.constf myconstB(0.015625, 3.0, 0.0, -3.5)
+
+.alias zeros myconstA.zzzz ; Vector full of zeros
+.alias ones  myconstA.yyyy ; Vector full of ones
+.alias neg_min_squared_mag myconstA.wwww
+
+; Inputs (defined as aliases for convenience)
+.in inpos v0 ; vertex position (x,y,z,_)
+.in intex v1 ; vertex texture coordinates (u,v,_,_)
+
+; Outputs
+.out outpos position
+.out outtex texcoord0
+.out outclr color
+
+.entry vmain
+.proc vmain
+	mov r0, inpos
+	mov r0.w, ones
+
+	mov outtex.xy, intex.xy
+	mov outclr, arraycolor
+
+	dp4 r9.x, model[0], r0
+	dp4 r9.y, model[1], r0
+	dp4 r9.z, model[2], r0
+	dp4 r9.w, model[3], r0
+
+	dp3 r8.x, r9.xyz, r9.xyz
+	add r8.x, neg_min_squared_mag, r8.x
+	call changed_with_distance
+
+	dp4 r8.x, view[0], r9
+	dp4 r8.y, view[1], r9
+	dp4 r8.z, view[2], r9
+	dp4 r8.w, view[3], r9
+
+	dp4 outpos.x, projection[0], r8
+	dp4 outpos.y, projection[1], r8
+	dp4 outpos.z, projection[2], r8
+	dp4 outpos.w, projection[3], r8
+
+	; We're finished
+	end
+.end

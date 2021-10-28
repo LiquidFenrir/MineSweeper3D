@@ -1,0 +1,51 @@
+.nodvle
+
+; PICA200 procedures for operating on quaternions
+; all quaternions in this file are expected to be 180 degree rotations, allows for some wacky optimisations
+
+; Constants
+.constf myconstA(0.0625, 1.0, 0.0, -81.0)
+.constf myconstB(0.015625, 3.0, 0.0, -3.5)
+
+.alias ones   myconstA.yyyy ; Vector full of ones
+
+; Subroutine
+; Inputs:
+; - r11: quaternion (qi, qj, qk, 0) = q.xyzw
+; Outputs:
+; - r11: quaternion direction: (qi, qj, qk, 0)
+; Trashes:
+; - None
+; Action:
+; extracts the axis from the 180-degree quaternion. a no-op
+.proc quat_to_axis
+	nop
+.end
+
+; Subroutine
+; Inputs:
+; - r6: quaternion (qi, qj, qk, invlen) = q.xyzw -> i,j,k not correct, multiply with invlen first
+; - r7: vec3 to rotate (x,y,z,overwritten)
+; Outputs:
+; - r7: rotated vec3 (x',y',z',1)
+; Trashes:
+; - r6: gets messed up bad.
+; Action:
+; //rotate vector (alternative) 
+; vec3 qrot_2(vec4 q, vec3 v)
+; {
+;     return v * ((q.w * q.w = 0) - (dot(q.xyz,q.xyz) = 1))
+;            + 2.0 * q.xyz * dot(q.xyz,v)
+;            + 2.0 * (q.w = 0) * cross(q.xyz,v);
+; }
+.proc rotate_by_quaternion
+	mul r6.xyz, r6.xyz, r6.www
+	dp3 r7.w, r6.xyz, r7.xyz
+
+	mul r6.xyz, r6.xyz, r7.www
+	add r6.xyz, r6.xyz, r6.xyz
+
+	mul r7.xyz, -ones, r7.xyz
+	add r7.xyz, r7.xyz, r6.xyz
+	mov r7.w, ones
+.end

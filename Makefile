@@ -32,41 +32,60 @@ include $(DEVKITARM)/3ds_rules
 #     - <libctru folder>/default_icon.png
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	MineSweeper3D
-APP_DESCRIPTION	:=	Play minesweeeper in first person!
+APP_DESCRIPTION	:=	Play minesweeeper in first person with friends!
 APP_AUTHOR	:=	LiquidFenrir
 
 TARGET		:=	MineSweeper3D
 BUILD		:=	build
-SOURCES		:=	source
+SOURCES		:=	source source/scenes shaders
 DATA		:=	data
-INCLUDES	:=	include
+INCLUDES	:=	include third-party/fmt/include third-party/inih
 GRAPHICS	:=	gfx
 ROMFS		:=	romfs
 GFXBUILD	:=	$(ROMFS)/gfx
+
+ifneq ($(strip $(GIT_VERSION)),)
+    VERSION           :=  $(shell git describe --tags --match v[0-9]* --abbrev=7 | sed 's/-[0-9]*-g/-/')
+else
+    VERSION	:=	vDebug
+endif
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
 ARCH	:=	-march=armv6k -mtune=mpcore -mfloat-abi=hard -mtp=soft
 
-CFLAGS	:=	-g -Wall -O2 -mword-relocations \
+CFLAGS	:=	-g
+ifeq ($(strip $(NODEBUGGING)),)
+CFLAGS	+=	-Og -DDEBUGGING
+else
+CFLAGS	+=	-O2
+endif
+
+CFLAGS	+=	-Wall -Wextra -mword-relocations \
 			-ffunction-sections \
 			$(ARCH)
 
-CFLAGS	+=	$(INCLUDE) -DARM11 -D_3DS
+CFLAGS	+=	$(INCLUDE) -D__3DS__ -DGAME_VERSION_STRING="\"$(APP_TITLE) $(VERSION)\""
 
-CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions -std=gnu++17
+CXXFLAGS	:= $(CFLAGS) -fno-rtti -std=gnu++20
 
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS	:=	-lcitro2d -lcitro3d -lctru -lm
+LIBS	:= -lpng -lz
+ifeq ($(strip $(NODEBUGGING)),)
+LIBS	+=	-lcitro2dd -lcitro3dd -lctrud
+else
+LIBS	+=	-lcitro2d -lcitro3d -lctru
+endif
+LIBS	+=	-lm
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS	:= $(CTRULIB)
+LIBDIRS	:= $(PORTLIBS) $(CTRULIB)
 
 
 #---------------------------------------------------------------------------------
@@ -91,6 +110,7 @@ SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 PICAFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.v.pica)))
 SHLISTFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.shlist)))
 GFXFILES	:=	$(foreach dir,$(GRAPHICS),$(notdir $(wildcard $(dir)/*.t3s)))
+FONTFILES	:=	$(foreach dir,$(GRAPHICS),$(notdir $(wildcard $(dir)/*.ttf)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 
 #---------------------------------------------------------------------------------
@@ -111,10 +131,12 @@ endif
 ifeq ($(GFXBUILD),$(BUILD))
 #---------------------------------------------------------------------------------
 export T3XFILES :=  $(GFXFILES:.t3s=.t3x)
+export EFONTFILES	:=  $(FONTFILES:.ttf=.bcfnt)
 #---------------------------------------------------------------------------------
 else
 #---------------------------------------------------------------------------------
 export ROMFS_T3XFILES	:=	$(patsubst %.t3s, $(GFXBUILD)/%.t3x, $(GFXFILES))
+export ROMFS_FONTFILES	:=	$(patsubst %.ttf, $(GFXBUILD)/%_12.bcfnt, $(FONTFILES))
 export T3XHFILES		:=	$(patsubst %.t3s, $(BUILD)/%.h, $(GFXFILES))
 #---------------------------------------------------------------------------------
 endif
@@ -124,7 +146,7 @@ export OFILES_SOURCES 	:=	$(CPPFILES:.cpp=.o) $(CFILES:.c=.o) $(SFILES:.s=.o)
 
 export OFILES_BIN	:=	$(addsuffix .o,$(BINFILES)) \
 			$(PICAFILES:.v.pica=.shbin.o) $(SHLISTFILES:.shlist=.shbin.o) \
-			$(addsuffix .o,$(T3XFILES))
+			$(addsuffix .o,$(T3XFILES)) $(addsuffix .o,$(EFONTFILES))
 
 export OFILES := $(OFILES_BIN) $(OFILES_SOURCES)
 
@@ -164,7 +186,7 @@ endif
 .PHONY: all clean
 
 #---------------------------------------------------------------------------------
-all: $(BUILD) $(GFXBUILD) $(DEPSDIR) $(ROMFS_T3XFILES) $(T3XHFILES)
+all: $(BUILD) $(GFXBUILD) $(DEPSDIR) $(ROMFS_T3XFILES) $(ROMFS_FONTFILES) $(T3XHFILES)
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 
 $(BUILD):
@@ -192,6 +214,18 @@ $(GFXBUILD)/%.t3x	$(BUILD)/%.h	:	%.t3s
 	@tex3ds -i $< -H $(BUILD)/$*.h -d $(DEPSDIR)/$*.d -o $(GFXBUILD)/$*.t3x
 
 #---------------------------------------------------------------------------------
+$(GFXBUILD)/%_18.bcfnt :		%.ttf
+#---------------------------------------------------------------------------------
+	@echo $(notdir $<)
+	@mkbcfnt -o $(GFXBUILD)/$*_18.bcfnt -s 18 $<
+
+#---------------------------------------------------------------------------------
+$(GFXBUILD)/%_12.bcfnt :		%.ttf
+#---------------------------------------------------------------------------------
+	@echo $(notdir $<)
+	@mkbcfnt -o $(GFXBUILD)/$*_12.bcfnt -s 12 $<
+
+#---------------------------------------------------------------------------------
 else
 
 #---------------------------------------------------------------------------------
@@ -212,9 +246,15 @@ $(OUTPUT).elf	:	$(OFILES)
 	@$(bin2o)
 
 #---------------------------------------------------------------------------------
-.PRECIOUS	:	%.t3x
+.PRECIOUS	:	%.t3x %.bcfnt
 #---------------------------------------------------------------------------------
 %.t3x.o	%_t3x.h :	%.t3x
+#---------------------------------------------------------------------------------
+	@echo $(notdir $<)
+	@$(bin2o)
+
+#---------------------------------------------------------------------------------
+%.bcfnt.o	%_bcfnt.h :	%.bcfnt
 #---------------------------------------------------------------------------------
 	@echo $(notdir $<)
 	@$(bin2o)
@@ -250,6 +290,19 @@ endef
 #---------------------------------------------------------------------------------
 	@echo $(notdir $<)
 	@tex3ds -i $< -H $*.h -d $*.d -o $*.t3x
+
+#---------------------------------------------------------------------------------
+%_18.bcfnt :		%.ttf
+#---------------------------------------------------------------------------------
+	@echo $(notdir $<)
+	@mkbcfnt -o $*_18.bcfnt -s 18 $<
+
+#---------------------------------------------------------------------------------
+%_12.bcfnt :		%.ttf
+#---------------------------------------------------------------------------------
+	@echo $(notdir $<)
+	@mkbcfnt -o $*_12.bcfnt -s 12 $<
+
 
 -include $(DEPSDIR)/*.d
 

@@ -1,0 +1,67 @@
+.nodvle
+
+; PICA200 procedures for operating on quaternions
+
+; Subroutine
+; Inputs:
+; - r11: quaternion (qi, qj, qk, qr) = q.xyzw
+; Outputs:
+; - r11: quaternion direction: (qi, qj, qk) / sqrt(dp3(q.xyz, q.xyz))
+; Trashes:
+: - r12
+; Action:
+; extracts the axis from the quaternion
+.proc quat_to_axis
+	; r12.x = dp3(q.xyz, q.xyz)
+	dp3 r12.x, r11.xyz, r11.xyz
+
+	; r12.xyzw = 1/sqrt(dp3(q.xyz, q.xyz))
+	rsq r12, r12
+
+	; r11 = result
+	mul r11.xyzw, r11.xyzw, r12
+	mov r11.w, ones
+.end
+
+; Subroutine
+; Inputs:
+; - r6: quaternion (qi, qj, qk, qr) = q.xyzw
+; - r7: vec3 to rotate (x,y,z,overwritten)
+; Outputs:
+; - r7: rotated vec3 (x',y',z',1)
+; Trashes:
+; - r9
+; - r10
+; Action:
+; //rotate vector (alternative) 
+; vec3 qrot_2(vec4 q, vec3 v)
+; {
+;     return v * (q.w * q.w - dot(q.xyz,q.xyz))
+;            + 2.0 * q.xyz * dot(q.xyz,v)
+;            + 2.0 * q.w * cross(q.xyz,v);
+; }
+.proc rotate_by_quaternion
+	; r9.x = dot(q.xyz,q.xyz)
+	; r7.w = dot(q.xyz,v)
+	; r10  = cross(q.xyz,v)
+	call cross_product
+	dp3 r9.x, r6.xyz, r6.xyz
+	dp3 r7.w, r6.xyz, r7.xyz
+
+	; r10 = 2.0 * q.w * cross(q.xyz,v)
+	mul r10, r10, r6.w
+	mul r10, r10, twos
+
+	; q.xyz = q.xyz * (2.0 * dot(q.xyz,v))
+	mul r7.w, r7.w, twos
+	mul r6.xyz, r6.xyz, r7.w
+
+	; v = v * (q.w * q.w) - dot(q.xyz,q.xyz)
+	mul r6.w, r6.w, r6.w
+	add r6.w, r6.w, -r9.x
+	mul r7, r7, r6.w
+
+	add r7.xyz, r7.xyz, r6.xyz
+	add r7.xyz, r7.xyz, r10.xyz
+	mov r7.w, ones
+.end

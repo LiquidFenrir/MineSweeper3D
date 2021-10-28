@@ -1,0 +1,62 @@
+.nodvle
+
+; PICA200 procedures for common operations
+; - minimum squared magnitude for fall in geo file
+; - fall factor for distances beyond ^
+.constf myconstA(0.0625, 1.0, 0.0, -81.0)
+.constf myconstB(0.015625, 3.0, 0.0, -3.5)
+
+.alias zeros        myconstA.zzzz
+.alias ones         myconstA.yyyy
+.alias threes       myconstB.yyyy
+.alias fall_factor  myconstB.wwww
+.alias max_drop_distance  myconstB.xxxx ; 1 over the distance
+
+; many thanks to https://www.youtube.com/watch?v=60VoL-F-jIQ
+; Subroutine
+; Inputs:
+; - r9.y: original height
+; - r8.x: distance from camera
+; Outputs:
+; - r9.y modified height with distance
+; Trashes:
+; - r8
+; Action:
+; r9.y = r9.y + fall_factor * smoothstep(r8.x)
+; smoothstep = x * x * (3 - 2 * x) where x = clamp(distance/max_drop_distance, 0, 1)
+.proc changed_with_distance
+	mul r8.x, max_drop_distance, r8.x
+	max r8.x, zeros, r8.x
+	min r8.x, ones, r8.x
+
+	; a = 3 - (2 * x)
+	add r8.y, r8.x, r8.x
+	add r8.y, threes, -r8.y
+	; b = x * x
+	mul r8.x, r8.x, r8.x
+	; c = b * a
+	mul r8.x, r8.x, r8.y
+	mul r8.x, fall_factor, r8.x
+
+	add r9.y, r9.y, r8.x
+.end
+
+; Subroutine
+; Inputs:
+; - r6: vec3
+; - r7: vec3
+; Outputs:
+; - r10: cross(r6, r7)
+; Trashes:
+; - r9
+; Action:
+; computes the cross product
+.proc cross_product
+	; left hand side of the cross product result
+	mul r10.xyz, r6.yzx, r7.zxy
+	; right hand side of the cross product result
+	mul r9.xyz, r6.zxy, r7.yzx
+	; result = L - R
+	add r10, r10, -r9
+	mov r10.w, ones
+.end

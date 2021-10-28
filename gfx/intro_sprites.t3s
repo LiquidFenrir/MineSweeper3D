@@ -1,0 +1,13 @@
+--atlas -f rgba8 -z auto
+intro/mine_big.png
+intro/flag_big.png
+intro/logo_M.png
+intro/logo_i.png
+intro/logo_n.png
+intro/logo_e.png
+intro/logo_s.png
+intro/logo_w.png
+intro/logo_p.png
+intro/logo_r.png
+intro/logo_3D.png
+intro/logo_dev.png

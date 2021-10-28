@@ -1,0 +1,21 @@
+; Pass-through PICA200 vertex shader for curvature geometry shader
+
+; Inputs (defined as aliases for convenience)
+.in inpos v0 ; position (x,y,z,texnum)
+.in ind1 v1 ; quaternion
+.in ind2 v2 ; quaternion
+
+; Outputs
+.out outpos position
+.out outd1 dummy
+.out outd2 dummy
+
+.entry vmain
+.proc vmain
+	mov outpos, inpos
+	mov outd1, ind1
+	mov outd2, ind2
+
+	; We're finished
+	end
+.end

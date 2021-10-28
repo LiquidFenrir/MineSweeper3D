@@ -1,0 +1,159 @@
+; Curvature PICA200 geometry shader
+; feed it center points and "grow directions" of a quad
+; and it will draw them curved depending on the distance
+
+.gsh point c0
+
+; Uniforms
+.fvec projection[4]
+.fvec view[4]
+.fvec model[4]
+
+; Constants
+.constf myconstA(0.0625, 1.0, 0.0, -81.0)
+.constf myconstB(0.015625, 3.0, 0.0, -3.5)
+
+.alias zeros myconstA.zzzz ; Vector full of zeros
+.alias ones  myconstA.yyyy ; Vector full of ones
+.alias div_numtex myconstA.xxxx
+.alias neg_min_squared_mag myconstA.wwww
+
+; Outputs - this time the type *is* used
+.out outpos position
+.out outtex texcoord0
+.out outclr clr
+
+; Inputs: we will receive the following inputs:
+; v1-v2: directions for the top left point when added
+.alias inpos v0 ; position (x,y,z,texnum)
+.alias ind1 v1 ; quaternion (i,j,k,r = 0)
+.alias ind2 v2 ; quaternion (i,j,k,r = 0)
+
+.entry gmain
+.proc gmain
+	; r11 is direction of TL corner of quad, using origin as center
+	mov r0, ind1
+	add r11, -r0, ind2
+	add r7, r0, ind2
+	add r12, -r0, -ind2
+	add r13, r0, -ind2
+
+	add r2.xyz, inpos.xyz, r11.xyz
+	mov r2.w, ones
+	add r0.xyz, inpos.xyz, r7.xyz
+	mov r0.w, ones
+	add r4.xyz, inpos.xyz, r12.xyz
+	mov r4.w, ones
+
+	; r1: (nextex, 1, 0, 0)
+	; r3: (curtex, 1, nextex, 0)
+	; r5: (curtex, 0, 0, 0)
+	mul r3.xz, div_numtex, inpos.ww
+	add r3.z, div_numtex, r3.z
+	mov r3.y, ones
+	mov r3.w, zeros
+	mov r1.xyzw, r3.zyww
+	mov r5.xyzw, r3.xwww
+
+	; Emit the first triangle
+	; r0 contains (+x,0) (TR)
+	; r2 contains (0,0) (TL)
+	; r4 contains (0,+z) (BL)
+	; r1 contains uv for (+x,0) = (nextex, 1)
+	; r3 contains uv for (0,0) = (curtex, 1)
+	; r5 contains uv for (0,+z) = (curtex, 0)
+	call emit_triangle
+
+	mov r2, r4
+	add r4.xyz, inpos.xyz, r13.xyz
+	mov r3, r5
+	mov r5.xy, r1.xw
+
+	; Emit the second triangle
+	; r0 contains (+x,0) (TR)
+	; r2 contains (0,+z) (BL)
+	; r4 contains (+x,+z) (BR)
+	; r1 contains uv for (+x,0) = (nextex, 1)
+	; r3 contains uv for (0,+z) = (curtex, 0)
+	; r5 contains uv for (+x,+z) = (nextex, 0)
+	call emit_triangle
+
+	; We're finished
+	end
+.end
+
+; Subroutine
+; Inputs:
+; - r0: vertex 0
+; - r1: uv 0
+; - r2: vertex 1
+; - r3: uv 1
+; - r4: vertex 2
+; - r5: uv 2
+; Outputs:
+; - None
+; Trashes:
+; - r8
+; - r9
+; Action:
+; emits a triangle.
+.proc emit_triangle
+	; Emit the first vertex
+	setemit 0
+	mov r8, r0
+	mov r9, r1
+	call process_vertex
+	emit
+
+	; Emit the second vertex
+	setemit 1
+	mov r8, r2
+	mov r9, r3
+	call process_vertex
+	emit
+
+	; Emit the third vertex and finish the primitive
+	setemit 2, prim
+	mov r8, r4
+	mov r9, r5
+	call process_vertex
+	emit
+.end
+
+; Subroutine
+; Inputs:
+; - r8: vertex position
+; - r9: vertex uv
+; Outputs:
+; - None
+; Trashes:
+; - r9
+; - r8
+; Action:
+; prepares a vertex to be emitted
+.proc process_vertex
+	mov outtex.xy, r9.xy
+	mov outclr, ones
+	; debug for plain colour squares
+	; mul outclr.xyz, div_numtex, inpos.www
+	; mov outclr.w, ones
+
+	dp4 r9.x, model[0], r8
+	dp4 r9.y, model[1], r8
+	dp4 r9.z, model[2], r8
+	dp4 r9.w, model[3], r8
+
+	dp3 r8.x, r9.xyz, r9.xyz
+	add r8.x, neg_min_squared_mag, r8.x
+	call changed_with_distance
+
+	dp4 r8.x, view[0], r9
+	dp4 r8.y, view[1], r9
+	dp4 r8.z, view[2], r9
+	dp4 r8.w, view[3], r9
+
+	dp4 outpos.x, projection[0], r8
+	dp4 outpos.y, projection[1], r8
+	dp4 outpos.z, projection[2], r8
+	dp4 outpos.w, projection[3], r8
+.end
