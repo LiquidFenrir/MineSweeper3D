@@ -130,7 +130,7 @@ struct gfx {
             }
             if(tex)
             {
-                C3D_TexDelete(&tex.value());
+                C3D_TexDelete(&*tex);
             }
         }
 
@@ -172,30 +172,37 @@ struct gfx {
         {
             if(tex)
             {
-                C3D_TexBind(id, &tex.value());
+                C3D_TexBind(id, &*tex);
             }
         }
 
-    private:
-        texture()
-            : render_target{nullptr}
+        texture(texture&& other)
+            : tex(std::move(other.tex))
+            , render_target(std::move(other.render_target))
         {
-
+            other.tex.reset();
         }
+        texture& operator=(texture&& other)
+        {
+            tex = std::move(other.tex);
+            other.tex.reset();
+            render_target = std::move(other.render_target);
+            return *this;
+        }
+    private:
+        texture() = default;
         texture(const u16 width, const u16 height, const GPU_TEXCOLOR format, std::optional<GPU_DEPTHBUF> depthtype)
-            : render_target{nullptr}
         {
             C3D_TexInitVRAM(&tex.emplace(), width, height, format);
             render_target = C3D_RenderTargetCreateFromTex(&tex.value(), GPU_TEXFACE_2D, 0, depthtype ? *depthtype : -1);
         }
         texture(const u16 width, const u16 height, const GPU_TEXCOLOR format)
-            : render_target{nullptr}
         {
             C3D_TexInit(&tex.emplace(), width, height, format);
         }
 
         std::optional<C3D_Tex> tex;
-        C3D_RenderTarget* render_target;
+        C3D_RenderTarget* render_target{nullptr};
     };
 
     struct spritesheet {

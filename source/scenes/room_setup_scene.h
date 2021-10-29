@@ -35,7 +35,7 @@ private:
     int entry_index, tab_index;
     game::button_page<room_setup_scene, 14> tab_numbers_buttons;
     game::button_page<room_setup_scene, 6> tab_type_buttons;
-    game::button_page<room_setup_scene, 3> tab_final_buttons;
+    game::button_page<room_setup_scene, 6> tab_final_buttons;
 
     game::button::parts button_parts, selected_button_parts;
     C2D_Text top_text[3];

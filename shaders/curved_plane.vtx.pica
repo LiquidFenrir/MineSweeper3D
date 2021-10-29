@@ -24,7 +24,7 @@
 	mov r0, inpos
 	mov r0.w, ones
 
-	mov outtex.xy, intex.xy
+	mov outtex, intex
 	mov outclr, arraycolor
 
 	dp4 r1.x, modelView[0], r0

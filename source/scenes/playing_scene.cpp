@@ -17,7 +17,7 @@ struct fog {
     }
 };
 static fog f{
-    0.25f,
+    0.5f,
     2.0f,
     0.01f,
     10.0f,
@@ -30,35 +30,6 @@ scenes::playing_scene::playing_scene(game::board::numbers n, game::board::mode b
 {
     clear_color_top = ctr::gfx::color{0x00, 0x94, 0xff, 0xff};
     point_count = game_config->data.game_board->reset(nums, board_mode, 0) * 6;
-
-    /*
-    for(const auto b_m : {game::board::mode::loop_both, game::board::mode::loop_vertical, game::board::mode::loop_horizontal, game::board::mode::regular})
-    {
-        board_mode = b_m;
-        point_count = game_config->data.game_board->reset(nums, board_mode, 0) * 6;
-        game_config->data.game_board->reveal_at({1, 1});
-        
-        const char* mode_str = "";
-        switch(board_mode)
-        {
-        case game::board::mode::regular:
-            mode_str = "regular";
-            break;
-        case game::board::mode::loop_vertical:
-            mode_str = "vertical";
-            break;
-        case game::board::mode::loop_horizontal:
-            mode_str = "horizontal";
-            break;
-        case game::board::mode::loop_both:
-            mode_str = "both";
-            break;
-        }
-
-        auto s = fmt::format("sdmc:/board_{}_{}_{}.txt", w, h, mode_str);
-        game_config->data.game_board->dump(s.c_str());
-    }
-    */
 
     GSPGPU_FlushDataCache(game_config->data.board_vbo.get(), point_count * sizeof(game::board::buffer_point));
 
@@ -135,7 +106,6 @@ game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, co
             }
         }
 
-        debugging::log("now at: x {} z {}\n", player_me.x, player_me.y);
         any_change = true;
     };
     const auto lookDir = [&](const int dx, const int dy) {
@@ -160,7 +130,6 @@ game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, co
             player_me.yaw -= 360.0f;
         }
 
-        debugging::log("now looking: yaw {} pitch {}\n", player_me.yaw, player_me.pitch);
         any_change = true;
     };
 
@@ -201,8 +170,6 @@ game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, co
 
 void scenes::playing_scene::draw(ctr::gfx& gfx)
 {
-    // debugging::log("starting 3d render\n");
-
     bool drop = false;
     bool fog = false;
 
@@ -220,7 +187,6 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
     gfx.get_screen(GFX_TOP, GFX_LEFT)->focus();
 
     C3D_SetAttrInfo(&game_config->data.board_attr);
-    C3D_SetBufInfo(&game_config->data.board_vbo_buf);
 
     if(fog)
     {
@@ -240,11 +206,6 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
     C3D_TexEnvSrc(env, C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR);
     C3D_TexEnvFunc(env, C3D_RGB, GPU_MODULATE);
 
-    // C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR);
-    // C3D_TexEnvOpRgb(env, GPU_TEVOP_RGB_SRC_COLOR);
-    // C3D_TexEnvOpAlpha(env, GPU_TEVOP_A_SRC_ALPHA);
-    // C3D_TexEnvFunc(env, C3D_Both, GPU_REPLACE);
-
     const auto& player_me = game_config->data.players[0];
     C3D_Mtx modelView;
 
@@ -252,12 +213,13 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
     {
         Mtx_Identity(&modelView);
         // Mtx_Translate(&modelView, 0.0f, 0.0f, 0.0f, true);
-        Mtx_Translate(&modelView, -player_me.x, 0.0f, -player_me.y, true);
         Mtx_RotateX(&modelView, C3D_AngleFromDegrees(player_me.pitch), true);
         Mtx_RotateY(&modelView, C3D_AngleFromDegrees(player_me.yaw), true);
+        Mtx_Translate(&modelView, -player_me.x, 0.0f, -player_me.y, true);
 
         C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[0], &projection);
         C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[1], &modelView);
+
         C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[2], 1.0f, 1.0f, 1.0f, 1.0f);
     }
     else if(drop)
@@ -276,6 +238,7 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
         C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[3], 1.0f, 1.0f, 1.0f, 1.0f);
     }
 
+    C3D_SetBufInfo(&game_config->data.board_vbo_buf);
     C3D_DrawArrays(GPU_TRIANGLES, 0, point_count);
 
     game::board::numbers::size offs[4];
@@ -349,9 +312,19 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
         C3D_DrawArrays(GPU_TRIANGLES, 0, point_count);
     }
 
-    C3D_SetBufInfo(&game_config->data.board_vbo_buf);
+    if(fog)
+    {
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[1], &modelcopy);
+        C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[2], 1.0f, 0.5f, 0.5f, 1.0f);
+    }
+    else if(drop)
+    {
+        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[2], &modelcopy);
+        C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[3], 1.0f, 0.5f, 0.5f, 1.0f);
+    }
+
+    C3D_SetBufInfo(&game_config->data.board_cursors_vbo_buf);
     C3D_DrawArrays(GPU_TRIANGLES, 0, (game::room::MAX_PLAYERS) * 6);
-    // debugging::log("starting flat render\n");
 
     if(fog)
     {
@@ -359,13 +332,7 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
         C3D_FogLutBind(nullptr);
     }
 
+    gfx.get_screen(GFX_BOTTOM, GFX_LEFT)->focus();
     gfx.render_2d();
     C2D_DrawRectSolid(20,20,0,20,20, C2D_Color32f(1,0,1,1));
-
-    gfx.get_screen(GFX_BOTTOM, GFX_LEFT)->focus();
-    C2D_DrawRectSolid(20,20,0,20,20, C2D_Color32f(1,0,1,1));
-
-    C2D_Flush();
-
-    // debugging::log("done rendering\n");
 }

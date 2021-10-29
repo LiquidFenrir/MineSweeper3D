@@ -328,7 +328,7 @@ bool game::board::reveal_at(location pos)
             {
                 if(board_cell.content < 0)
                 {
-                    update_render_tile_uv(ptrdiff_t(&board_cell - cells.data()) + render_buffer_tiles_offset, 12);
+                    update_render_tile_uv(ptrdiff_t(&board_cell - cells.data()) + render_buffer_tiles_offset, 11);
                     board_cell.st = cell::state::exploded;
                 }
             }
@@ -356,13 +356,13 @@ bool game::board::flag_at(location pos)
         if(cell.st == cell::state::none)
         {
             cell.st = cell::state::flagged;
-            update_render_tile_uv(ptrdiff_t(&cell - cells.data()) + render_buffer_tiles_offset, 11);
+            update_render_tile_uv(ptrdiff_t(&cell - cells.data()) + render_buffer_tiles_offset, 10);
             return true;
         }
         else if(cell.st == cell::state::flagged)
         {
             cell.st = cell::state::none;
-            update_render_tile_uv(ptrdiff_t(&cell - cells.data()) + render_buffer_tiles_offset, 10);
+            update_render_tile_uv(ptrdiff_t(&cell - cells.data()) + render_buffer_tiles_offset, 9);
             return true;
         }
     }
@@ -671,7 +671,7 @@ void game::board::update_render_tile_uv(int index, const float tex_num)
 #include <3ds/types.h>
 #include <c3d/maths.h>
 
-void game::board::fill_cursor_positions(std::span<const game::player> players, buffer_point* const cursors_output)
+void game::board::fill_cursor_positions(std::span<game::player> players, buffer_point* const cursors_output)
 {
     int index = 0;
     const auto set_cursor = [&index, cursors_output](const buffer_point::pos& center, bool present)
@@ -742,44 +742,41 @@ void game::board::fill_cursor_positions(std::span<const game::player> players, b
         cursors_output[index++] = br;
     };
 
-    for(const auto& p : players)
+    for(auto& p : players)
     {
-        if(!p.on_map || p.pitch >= -36.0f)
+        if(!p.on_map || p.pitch < 18.0f)
         {
 no_cursor:
+            p.cursor.reset();
             set_cursor({0, 0, 0}, false);
             continue;
         }
 
+        debugging::log("player pitch: {}\n", p.pitch);
+
         const float pitch = C3D_AngleFromDegrees(p.pitch);
         const float yaw = C3D_AngleFromDegrees(p.yaw);
 
-        const C3D_FVec ray_vector = FVec3_New(
-            std::cos(yaw)*std::cos(pitch),
-            std::sin(yaw)*std::cos(pitch),
-            std::sin(pitch)
-        );
-        const C3D_FVec ray_pos = FVec3_New(
-            p.x,
-            0.0f,
-            p.y
-        );
+        const float dist = 1.0f/std::tan(pitch);
 
-        // https://stackoverflow.com/a/58819973
-        // plane point: 0, -1, 0
-        // plane normal: 0, +1, 0
-        // d = - dot(n, r) = -(-1 * +1) = -(-1) = 1
-        // float t = -(dot(n, p) + d) / dot(n, v);
-        const float d = 1;
-        const float t = -(ray_pos.y + d) / ray_vector.y;
-        if(t <= 3.16f)
+        if(dist < 7.5f)
         {
-            const auto hit = FVec3_Add(ray_pos, FVec3_Scale(ray_vector, t));
-            set_cursor({std::floor(hit.x) + 0.5f, -1.0f + __FLT_EPSILON__, std::floor(hit.z) + 0.5f}, true);
+            const C3D_FVec ray_vector = FVec3_New(
+                dist * std::sin(yaw),
+                0.0f,
+                dist * -std::cos(yaw)
+            );
+            const C3D_FVec ray_pos = FVec3_New(
+                p.x,
+                0.0f,
+                p.y
+            );
+            const C3D_FVec hit = FVec3_Add(ray_pos, ray_vector);
+            debugging::log("cursor hit: x, y, z: {}, {}, {}\n", hit.x, hit.y, hit.z);
+            p.cursor = {std::floor(hit.x), std::floor(hit.z)};
+            set_cursor({p.cursor->x + 0.5f, -1.0f + 0.0625f / 64.0f, p.cursor->y + 0.5f}, true);
+            continue;
         }
-        else
-        {
-            goto no_cursor;
-        }
+        goto no_cursor;
     }
 }

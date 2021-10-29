@@ -196,9 +196,9 @@ struct config {
         std::optional<double_text_buf<1>> dynamic_small_text_gen;
 
         std::optional<ctr::gfx::texture> sheet_3d;
+        linear_ptr board_vbo, board_cursors_vbo;
         std::optional<ctr::gfx::shader_with_uniforms<3>> board_shader_basic;
         std::optional<ctr::gfx::shader_with_uniforms<4>> board_shader_drop;
-        linear_ptr board_vbo, board_cursors_vbo;
         C3D_FogLut fog_lut;
         C3D_AttrInfo board_attr;
         C3D_BufInfo board_vbo_buf;

@@ -107,7 +107,7 @@ struct board {
     };
     void set_render_tile(int index, const buffer_point::pos& center, const float tex_num, const direction& dir_a,  const direction& dir_b);
     void update_render_tile_uv(int index, const float tex_num);
-    void fill_cursor_positions(std::span<const game::player> players, buffer_point* const cursors_output);
+    void fill_cursor_positions(std::span<game::player> players, buffer_point* const cursors_output);
     void dump(const char* filename);
 
 private:
