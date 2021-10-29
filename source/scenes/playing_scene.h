@@ -11,12 +11,13 @@ START_SCENE(playing_scene)
     void draw(ctr::gfx& gfx) override final;
 
 private:
-    playing_scene(game::board::numbers n, game::board::mode b);
+    playing_scene(game::board::numbers n, game::board::mode b, const int self_idx);
 
     C3D_Mtx projection;
     int point_count;
     game::board::numbers nums;
     game::board::mode board_mode;
+    game::player& self;
 END_SCENE
 
 }

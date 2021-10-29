@@ -165,7 +165,7 @@ struct gfx {
         }
         C3D_Tex* get_tex()
         {
-            return tex ? &tex.value() : nullptr;
+            return tex ? &*tex : nullptr;
         }
 
         void bind(int id)
@@ -178,7 +178,7 @@ struct gfx {
 
         texture(texture&& other)
             : tex(std::move(other.tex))
-            , render_target(std::move(other.render_target))
+            , render_target(std::exchange(other.render_target, nullptr))
         {
             other.tex.reset();
         }
@@ -186,15 +186,16 @@ struct gfx {
         {
             tex = std::move(other.tex);
             other.tex.reset();
-            render_target = std::move(other.render_target);
+            render_target = std::exchange(other.render_target, nullptr);
             return *this;
         }
+
     private:
         texture() = default;
         texture(const u16 width, const u16 height, const GPU_TEXCOLOR format, std::optional<GPU_DEPTHBUF> depthtype)
         {
             C3D_TexInitVRAM(&tex.emplace(), width, height, format);
-            render_target = C3D_RenderTargetCreateFromTex(&tex.value(), GPU_TEXFACE_2D, 0, depthtype ? *depthtype : -1);
+            render_target = C3D_RenderTargetCreateFromTex(&*tex, GPU_TEXFACE_2D, 0, depthtype ? *depthtype : -1);
         }
         texture(const u16 width, const u16 height, const GPU_TEXCOLOR format)
         {

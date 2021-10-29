@@ -43,7 +43,7 @@ int main(int argc, char** argv)
         auto config = std::make_unique<game::config>(argv ? argv[0] : nullptr, username);
         game::scenes::game_config = config.get();
 
-        auto& gfx = gfx_holder.emplace(config->screen_settings);
+        auto& gfx = gfx_holder.emplace(config->conf.screen_settings);
         auto& hid = hid_holder.emplace();
         // auto& audio = audio_holder.emplace();
 

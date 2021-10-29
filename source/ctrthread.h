@@ -19,7 +19,7 @@ struct thread_base {
 struct cur_thread : public thread_base {
     Thread get_id()
     {
-        return Thread(intptr_t(4));
+        return Thread(intptr_t(-1));
     }
     Handle native_handle() const
     {
@@ -33,7 +33,7 @@ class thread : public thread_base {
     template<class P_t>
     static void trampoline(void* v_arg)
     {
-        auto const thread_arg = std::unique_ptr<P_t>(static_cast<P_t*>(v_arg));
+        const auto thread_arg = std::unique_ptr<P_t>(static_cast<P_t*>(v_arg));
         std::apply(thread_arg->second, thread_arg->first);
     }
 
@@ -49,7 +49,7 @@ public:
     {
         using P_t = std::pair<std::tuple<Args...>, F&&>;
         auto arg = std::make_unique<P_t>(
-            std::tuple<Args...>(args...),
+            std::tuple<Args...>(std::forward<Args>(args)...),
             std::forward<F>(func)
         );
         m_th = threadCreate(&thread::trampoline<P_t>, arg.get(), info.stack_size, info.prio, info.core_id, false);

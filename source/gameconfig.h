@@ -30,15 +30,9 @@ struct config {
     config(const config&) = delete;
     config(config&&) = delete;
 
-    static inline constexpr int config_version = 1;
+    void save() const;
 
-    ctr::gfx::screen_mode screen_settings{ctr::gfx::screen_mode::regular};
-
-    struct axis {
-        bool reverse;
-        unsigned char sensitivity;
-    };
-    axis y_axis, x_axis;
+    static inline constexpr int VERSION = 1;
 
     template<typename T>
     struct key_map {
@@ -135,23 +129,32 @@ struct config {
             camera,
             flag,
             reveal,
-            ping,
         };
 
         static key_map<game_settings>::key_map::keys default_map();
     };
 
-    key_map<menu_settings> keymap_menu;
-    key_map<game_settings> keymap_game;
-
-    // start and select are for opening/closing the menu
-    const std::string config_path;
-    const char* const username;
+    struct axis {
+        bool reverse;
+        unsigned char sensitivity; // 1-100
+    };
     enum class distance_draw_mode {
         fog,
         drop,
     };
-    distance_draw_mode draw_mode{distance_draw_mode::fog};
+
+    struct config_data {
+        ctr::gfx::screen_mode screen_settings{ctr::gfx::screen_mode::regular};
+        distance_draw_mode draw_mode{distance_draw_mode::fog};
+        axis camera_y_axis, camera_x_axis;
+        key_map<menu_settings> keymap_menu;
+        key_map<game_settings> keymap_game;
+    };
+    config_data conf;
+
+    // start and select are for opening/closing the menu
+    const std::string path;
+    const char* const username;
 
     struct common_scene_data {
         std::optional<ctr::gfx::spritesheet> intro_sheet, ingame_sheet, menu_sheet;

@@ -752,14 +752,12 @@ no_cursor:
             continue;
         }
 
-        debugging::log("player pitch: {}\n", p.pitch);
-
         const float pitch = C3D_AngleFromDegrees(p.pitch);
         const float yaw = C3D_AngleFromDegrees(p.yaw);
 
         const float dist = 1.0f/std::tan(pitch);
 
-        if(dist < 7.5f)
+        if(dist < 5.0f)
         {
             const C3D_FVec ray_vector = FVec3_New(
                 dist * std::sin(yaw),
@@ -772,9 +770,8 @@ no_cursor:
                 p.y
             );
             const C3D_FVec hit = FVec3_Add(ray_pos, ray_vector);
-            debugging::log("cursor hit: x, y, z: {}, {}, {}\n", hit.x, hit.y, hit.z);
-            p.cursor = {std::floor(hit.x), std::floor(hit.z)};
-            set_cursor({p.cursor->x + 0.5f, -1.0f + 0.0625f / 64.0f, p.cursor->y + 0.5f}, true);
+            p.cursor = {int(hit.x), int(hit.z)};
+            set_cursor({p.cursor->x + 0.5f, -1.0f + 0.0625f / 32.0f, p.cursor->y + 0.5f}, true);
             continue;
         }
         goto no_cursor;

@@ -220,10 +220,10 @@ void scenes::main_menu_scene::set_next_scene_to(scene_ptr ptr)
 game::scenes::next_scene scenes::main_menu_scene::update(const ctr::hid& input, const double dt)
 {
     if(!buttons.react(*this, input, menu))
-        menu.react(*this, input, game_config->keymap_menu);
+        menu.react(*this, input, game_config->conf.keymap_menu);
     if(next)
     {
-        auto out = std::move(next.value());
+        auto out = std::move(*next);
         next.reset();
         return out;
     }

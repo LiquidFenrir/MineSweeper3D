@@ -131,9 +131,9 @@ struct scene_menu {
         return current_entry;
     }
 
-    bool react(T& source, const ctr::hid& input, const decltype(game::config::keymap_menu)& key_mapping)
+    bool react(T& source, const ctr::hid& input, const decltype(game::config::config_data::keymap_menu)& key_mapping)
     {
-        using key_usage = decltype(game::config::keymap_menu)::key_usage;
+        using key_usage = decltype(game::config::config_data::keymap_menu)::key_usage;
         const auto& entry = *current_entry;
         using k_t = key_usage;
         using v_t = menu_tab::menu_entry::func_t;

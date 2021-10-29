@@ -306,8 +306,8 @@ static const menu_structure_single_t menu_structure = []() {
 
 scenes::room_setup_scene::room_setup_scene(bool multi)
     : is_multiplayer{multi}
-    , menu(menu_structure.entries_numbers[1])
-    , entry_index{1}
+    , menu(menu_structure.entries_numbers[0])
+    , entry_index{0}
     , tab_index{0}
 {
     numbers.dims.width = game::board::MIN_WIDTH;
@@ -626,7 +626,12 @@ void scenes::room_setup_scene::prepare_starting()
         BufInfo_Add(&game_config->data.board_cursors_vbo_buf, game_config->data.board_cursors_vbo.get(), sizeof(game::board::buffer_point), 2, 0x10);
     }
 
-    set_next_scene_to(::scenes::transition_scene::create(get_ptr(), ::scenes::playing_scene::create(numbers, board_mode)));
+    game_config->data.players.fill({});
+    auto& self = game_config->data.players[0];
+    self.on_map = true;
+    self.x = numbers.dims.width / 2.0f;
+    self.y = numbers.dims.height / 2.0f;
+    set_next_scene_to(::scenes::transition_scene::create(get_ptr(), ::scenes::playing_scene::create(numbers, board_mode, 0)));
 }
 
 game::scenes::next_scene scenes::room_setup_scene::update(const ctr::hid& input, const double dt)
@@ -646,10 +651,10 @@ game::scenes::next_scene scenes::room_setup_scene::update(const ctr::hid& input,
     }
 
     if(should_handle_keys)
-        menu.react(*this, input, game_config->keymap_menu);
+        menu.react(*this, input, game_config->conf.keymap_menu);
     if(next)
     {
-        auto out = std::move(next.value());
+        auto out = std::move(*next);
         next.reset();
         return out;
     }

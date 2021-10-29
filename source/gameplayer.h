@@ -11,7 +11,7 @@ struct player {
     char name[20];
     bool on_map{false};
     struct cursor_pos {
-        float x, y;
+        int x, y;
     };
     std::optional<cursor_pos> cursor;
 };

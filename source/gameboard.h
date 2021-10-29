@@ -53,6 +53,8 @@ struct board {
 
     // returns true if the click changed anything
     bool reveal_at(location pos);
+
+    // returns true if the click changed anything
     bool flag_at(location pos);
 
     enum state {

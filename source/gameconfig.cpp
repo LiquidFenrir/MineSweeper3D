@@ -1,33 +1,94 @@
 #include "gameconfig.h"
 #include "debugging.h"
 #include <string>
+#include <string_view>
 #include <memory>
 #include <cstdio>
-#include "INIReader.h"
+#include <libconfig.h++>
+
+using namespace std::string_view_literals;
 
 game::config::config(const char* exe_path, const char* user)
-    : config_path(exe_path ? std::string(exe_path) + ".ini" : "")
+    : path(exe_path ? std::string(exe_path) + ".conf" : "")
     , username(user)
 {
     if(exe_path == nullptr) return;
 
-    util::file_ptr fh(fopen(config_path.c_str(), "r"));
-    if(!fh)  {
-        debugging::log("Config file {} does not exist!\n", config_path);
-        return;
-    }
-
-    INIReader reader(fh.get());
-    if (auto err = reader.ParseError(); err != 0) {
-        debugging::log("Error during config load: {}\n", err);
-        return;
-    }
-
-    if(auto version = reader.GetInteger("donottouch", "version", -1); version != config_version)
+    util::file_ptr file(fopen(path.c_str(), "r"));
+    if(!file)
     {
-        debugging::log("Invalid config version: {}v", version);
+        debugging::log("Config file absent at {}\n", path);
         return;
     }
+
+    libconfig::Config io;
+    io.read(file.get());
+
+    if(int version = 0; io.lookupValue("version", version) && version == VERSION)
+    {
+        if(const char* screen_mode = nullptr; io.lookupValue("screen.mode", screen_mode))
+        {
+            constexpr std::pair<std::string_view, ctr::gfx::screen_mode> ps[] = {
+                {"normal", ctr::gfx::screen_mode::regular},
+                {"stereo", ctr::gfx::screen_mode::stereo},
+                {"wide", ctr::gfx::screen_mode::wide},
+            };
+            for(const auto& [s,m] : ps)
+            {
+                if(s == screen_mode)
+                {
+                    conf.screen_settings = m;
+                    break;
+                }
+            }
+        }
+
+        if(const char* gameplay_mode = nullptr; io.lookupValue("screen.gameplay_mode", gameplay_mode))
+        {
+            constexpr std::pair<std::string_view, distance_draw_mode> ps[] = {
+                {"fog", distance_draw_mode::fog},
+                {"drop", distance_draw_mode::drop},
+            };
+            for(const auto& [s,m] : ps)
+            {
+                if(s == gameplay_mode)
+                {
+                    conf.draw_mode = m;
+                    break;
+                }
+            }
+        }
+        
+        if(bool x_axis_rev = false; io.lookupValue("controls.x_axis.reverse", x_axis_rev))
+        {
+            conf.camera_x_axis.reverse = x_axis_rev;
+        }
+        if(int x_axis_sens = false; io.lookupValue("controls.x_axis.sensitivity", x_axis_sens))
+        {
+            conf.camera_x_axis.sensitivity = x_axis_sens;
+        }
+        
+        if(bool y_axis_rev = false; io.lookupValue("controls.y_axis.reverse", y_axis_rev))
+        {
+            conf.camera_y_axis.reverse = y_axis_rev;
+        }
+        if(int y_axis_sens = false; io.lookupValue("controls.y_axis.sensitivity", y_axis_sens))
+        {
+            conf.camera_y_axis.sensitivity = y_axis_sens;
+        }
+    }
+    else
+    {
+        debugging::log("Outdated config file: {} (current {})\n", version, VERSION);
+    }
+}
+
+void game::config::save() const
+{
+    libconfig::Config io;
+    auto& root = io.getRoot();
+
+    io.writeFile(path.c_str());
 }
 
 #define DEFAULT_KEY_MAP_CREATE(cl, fun) \
