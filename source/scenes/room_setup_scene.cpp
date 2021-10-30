@@ -561,11 +561,11 @@ void scenes::room_setup_scene::change_mine_percent(int by)
 /// TODO: ask with swkbd
 void scenes::room_setup_scene::ask_width()
 {
-
+    numbers.dims.width = 30;
 }
 void scenes::room_setup_scene::ask_height()
 {
-
+    numbers.dims.height = 30;
 }
 void scenes::room_setup_scene::ask_mine_percent()
 {
@@ -581,21 +581,30 @@ void scenes::room_setup_scene::prepare_starting()
     if(!game_config->data.game_board)
     {
         game_config->data.sheet_3d = ctr::gfx::texture::load_from_file("romfs:/gfx/sheet_3D.t3x");
+        game_config->data.sheet_cursors = ctr::gfx::texture::load_from_file("romfs:/gfx/sheet_cursors.t3x");
+        /*
         {
         const auto t = game_config->data.sheet_3d->get_tex();
         C3D_TexSetFilter(t, GPU_NEAREST, GPU_NEAREST);
-        // C3D_TexSetFilterMipmap(t, GPU_NEAREST);
-        // C3D_TexSetFilter(t, GPU_NEAREST, GPU_NEAREST);
-        // C3D_TexSetFilterMipmap(t, GPU_LINEAR);
-        // C3D_TexSetWrap(t, GPU_CLAMP_TO_BORDER, GPU_CLAMP_TO_BORDER);
+        C3D_TexSetFilterMipmap(t, GPU_NEAREST);
         t->border = 0;
         }
+        */
 
         constexpr std::size_t board_vbo_sz = (game::board::MAX_HEIGHT * game::board::MAX_WIDTH + (2 * (game::board::MAX_WIDTH + game::board::MAX_HEIGHT))) * 6;
         game_config->data.board_vbo.reset(linearAlloc(board_vbo_sz * sizeof(game::board::buffer_point)));
+        constexpr std::size_t board_margin_vbo_sz = (0
+             + (game::board::HORI_MARGIN * game::board::MAX_WIDTH) *2
+             + (game::board::VERT_MARGIN * game::board::MAX_HEIGHT) * 2
+             + (game::board::VERT_MARGIN * game::board::HORI_MARGIN) * 4
+        ) * 6;
+        game_config->data.board_margin_vbo.reset(linearAlloc(board_margin_vbo_sz * sizeof(game::board::buffer_point)));
         game_config->data.board_cursors_vbo.reset(linearAlloc((game::room::MAX_PLAYERS) * 6 * sizeof(game::board::buffer_point)));
 
-        game_config->data.game_board.emplace(static_cast<game::board::buffer_point*>(game_config->data.board_vbo.get()));
+        game_config->data.game_board.emplace(
+            static_cast<game::board::buffer_point*>(game_config->data.board_vbo.get()),
+            static_cast<game::board::buffer_point*>(game_config->data.board_margin_vbo.get())
+        );
 
         {
         constexpr std::pair<const char*, shaderInstance_s* shaderProgram_s::*> uniforms_arr[] = {
@@ -622,6 +631,8 @@ void scenes::room_setup_scene::prepare_starting()
 
         BufInfo_Init(&game_config->data.board_vbo_buf);
         BufInfo_Add(&game_config->data.board_vbo_buf, game_config->data.board_vbo.get(), sizeof(game::board::buffer_point), 2, 0x10);
+        BufInfo_Init(&game_config->data.board_margin_vbo_buf);
+        BufInfo_Add(&game_config->data.board_margin_vbo_buf, game_config->data.board_margin_vbo.get(), sizeof(game::board::buffer_point), 2, 0x10);
         BufInfo_Init(&game_config->data.board_cursors_vbo_buf);
         BufInfo_Add(&game_config->data.board_cursors_vbo_buf, game_config->data.board_cursors_vbo.get(), sizeof(game::board::buffer_point), 2, 0x10);
     }
@@ -631,7 +642,9 @@ void scenes::room_setup_scene::prepare_starting()
     self.on_map = true;
     self.x = numbers.dims.width / 2.0f;
     self.y = numbers.dims.height / 2.0f;
-    set_next_scene_to(::scenes::transition_scene::create(get_ptr(), ::scenes::playing_scene::create(numbers, board_mode, 0)));
+    auto nums = numbers;
+    nums.mines = (nums.mines * nums.dims.height * nums.dims.width) / 100;
+    set_next_scene_to(::scenes::transition_scene::create(get_ptr(), ::scenes::playing_scene::create(nums, board_mode, 0)));
 }
 
 game::scenes::next_scene scenes::room_setup_scene::update(const ctr::hid& input, const double dt)
@@ -819,7 +832,7 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
         C2D_Text* txts[4] = {
             &width_text,
             &height_text,
-            &width_text,
+            &mines_text,
         };
         C2D_Image imgs[4] = {
             width_img,

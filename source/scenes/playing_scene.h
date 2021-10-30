@@ -15,6 +15,8 @@ private:
 
     C3D_Mtx projection;
     int point_count;
+    int point_count_margin;
+    int point_count_cursors;
     game::board::numbers nums;
     game::board::mode board_mode;
     game::player& self;

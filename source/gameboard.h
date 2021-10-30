@@ -28,10 +28,14 @@ struct board {
 
     static inline constexpr int MIN_WIDTH = 10;
     static inline constexpr int MIN_HEIGHT = 10;
-    static inline constexpr int MIN_PERCENT = 10;
+    static inline constexpr int MIN_PERCENT = 20;
+
     static inline constexpr int MAX_WIDTH = 99;
     static inline constexpr int MAX_HEIGHT = 99;
-    static inline constexpr int MAX_PERCENT = 20;
+    static inline constexpr int MAX_PERCENT = 35;
+
+    static inline constexpr int HORI_MARGIN = 10;
+    static inline constexpr int VERT_MARGIN = 10;
 
     struct numbers {
         struct size {
@@ -48,8 +52,8 @@ struct board {
         loop_both,
     };
     // clear cells, set new height and width, prepare for generating
-    // returns number of points in the render buffer
-    int reset(const numbers& nums, const mode board_mode, const std::time_t seed_value);
+    // returns number of points in the render buffer and in the margin buffer
+    std::pair<int, int> reset(const numbers& nums, const mode board_mode, const std::time_t seed_value);
 
     // returns true if the click changed anything
     bool reveal_at(location pos);
@@ -102,18 +106,19 @@ struct board {
 
     using buffer_point = buffer_point_vtx;
 
-    board(buffer_point* const render_output);
+    board(buffer_point* const render_output, buffer_point* const margin_output);
 
     struct direction {
         float x, y, z;
     };
-    void set_render_tile(int index, const buffer_point::pos& center, const float tex_num, const direction& dir_a,  const direction& dir_b);
-    void update_render_tile_uv(int index, const float tex_num);
-    void fill_cursor_positions(std::span<game::player> players, buffer_point* const cursors_output);
+    int fill_cursor_positions(std::span<game::player> players, buffer_point* const cursors_output);
     void dump(const char* filename);
 
 private:
-    int initial_render();
+    std::pair<int, int> initial_render();
+
+    void set_render_tile(int index, buffer_point* const buf, const buffer_point::pos& center, const float tex_num, const direction& dir_a,  const direction& dir_b);
+    void update_render_tile_uv(int index, const float tex_num);
 
     cell& get_cell(location pos);
     cell& get_cell(int index);
@@ -132,6 +137,7 @@ private:
     mode current_board_mode;
 
     buffer_point* const render_buffer;
+    buffer_point* const margin_buffer;
     int render_buffer_tiles_offset;
 };
 

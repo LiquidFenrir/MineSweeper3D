@@ -23,7 +23,7 @@ Available preset gamemodes are:
 ## Controls
 
 You can select which keys are used for revealing, which keys are for toggling flags, and which keys are for movement in the settings menu
-Press START to open the pause menu (will actually pause the timer in singleplayer)  
+Press START go back to the main menu while in game.
 
 ## License
 
@@ -31,8 +31,9 @@ This version of the game is licensed under the GPLv3.
 
 ## Credits
 
-- `gfx/room_coop.png` is licensed under the [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.en) and made by Font Awesome Free 5.2.0 by @fontawesome - https://fontawesome.com
-- `gfx/room_team.png` and `gfx/room_br.png` are made by [Freepik](https://www.freepik.com) from [www.flaticon.com](https://www.flaticon.com/)
+- `gfx/menus/room_coop.png` is licensed under the [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.en) and made by Font Awesome Free 5.2.0 by @fontawesome - https://fontawesome.com
+- `gfx/menus/room_team.png` and `gfx/menus/room_br.png` are made by [Freepik](https://www.freepik.com) from [www.flaticon.com](https://www.flaticon.com/)
+- the images in the `gfx/ingame/sheet_3D_cursors.png` spritesheet are from [OpenGameArt.org](https://opengameart.org/) and licensed under the [CC0](https://creativecommons.org/publicdomain/)
 
 Many thanks to the [libctru](https://github.com/smealum/ctrulib/), [citro3d](https://github.com/fincs/citro3d/), and [citro2d](https://github.com/devkitPro/citro2d/) maintainers and contributors for the amazing libraries.  
 Even more thanks to fincs specifically for the 3ds examples of using citro3d, they were a lot of help!

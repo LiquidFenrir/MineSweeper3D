@@ -20,10 +20,10 @@ struct fog {
     }
 };
 static fog f{
-    0.5f,
+    1.0f,
     2.0f,
-    0.01f,
-    10.0f,
+    0.001f,
+    12.0f,
 };
 }
 
@@ -33,14 +33,20 @@ scenes::playing_scene::playing_scene(game::board::numbers n, game::board::mode b
     , self{game_config->data.players[self_idx]}
 {
     clear_color_top = ctr::gfx::color{0x00, 0x94, 0xff, 0xff};
-    point_count = game_config->data.game_board->reset(nums, board_mode, 0) * 6;
+    std::tie(point_count, point_count_margin) = game_config->data.game_board->reset(nums, board_mode, 0);
+    point_count *= 6;
+    point_count_margin *= 6;
+    point_count_cursors = 0;
 
     GSPGPU_FlushDataCache(game_config->data.board_vbo.get(), point_count * sizeof(game::board::buffer_point));
+    if(point_count_margin)
+        GSPGPU_FlushDataCache(game_config->data.board_margin_vbo.get(), point_count_margin * sizeof(game::board::buffer_point));
 
-    Mtx_PerspTilt(&projection, C3D_AngleFromDegrees(50.0f), C3D_AspectRatioTop, 0.01f, 20.0f, false);
+    Mtx_PerspTilt(&projection, C3D_AngleFromDegrees(50.0f), C3D_AspectRatioTop, 0.01f, 12.0f, false);
 
     debugging::log("starting game\n");
     debugging::log("point_count: {}\n", point_count);
+    debugging::log("point_count_margin: {}\n", point_count_margin);
     FogLut_Exp(&game_config->data.fog_lut, foggy::f.den, foggy::f.gra, foggy::f.near, foggy::f.far);
 }
 
@@ -220,8 +226,9 @@ game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, co
 
     if(any_change)
     {
-        game_config->data.game_board->fill_cursor_positions(game_config->data.players, static_cast<game::board::buffer_point*>(game_config->data.board_cursors_vbo.get()));
-        GSPGPU_FlushDataCache(game_config->data.board_cursors_vbo.get(), ((game::room::MAX_PLAYERS) * 6 * sizeof(game::board::buffer_point)));
+        point_count_cursors = game_config->data.game_board->fill_cursor_positions(game_config->data.players, static_cast<game::board::buffer_point*>(game_config->data.board_cursors_vbo.get()));
+        if(point_count_cursors)
+            GSPGPU_FlushDataCache(game_config->data.board_cursors_vbo.get(), point_count_cursors * sizeof(game::board::buffer_point));
     }
 
     return std::nullopt;
@@ -244,13 +251,15 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
         break;
     }
     gfx.get_screen(GFX_TOP, GFX_LEFT)->focus();
+    // C3D_CullFace(GPU_CULL_NONE);
 
     C3D_SetAttrInfo(&game_config->data.board_attr);
 
     if(fog)
     {
         C3D_FogGasMode(GPU_FOG, GPU_DEPTH_DENSITY, false);
-        C3D_FogColor(0xD8B068);
+        // C3D_FogColor(0xD8B068);
+        C3D_FogColor(0xff9400);
         C3D_FogLutBind(&game_config->data.fog_lut);
     }
     else
@@ -267,10 +276,10 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
 
     C3D_Mtx modelView;
 
-    const auto do_render = [&](float iod) {
+    const auto do_render = [&](const float iod) {
         C3D_Mtx actual_proj;
         if(iod)
-            Mtx_PerspStereoTilt(&actual_proj, C3D_AngleFromDegrees(50.0f), C3D_AspectRatioTop, 0.01f, 20.0f, iod, 2.0f, false);
+            Mtx_PerspStereoTilt(&actual_proj, C3D_AngleFromDegrees(50.0f), C3D_AspectRatioTop, 0.01f, 14.0f, iod, 2.0f, false);
         else
             Mtx_Copy(&actual_proj, &projection);
 
@@ -303,93 +312,117 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
             C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[3], 1.0f, 1.0f, 1.0f, 1.0f);
         }
 
-        C3D_SetBufInfo(&game_config->data.board_vbo_buf);
-        C3D_DrawArrays(GPU_TRIANGLES, 0, point_count);
-
-        game::board::numbers::size offs[4];
-        int num_offs = 0;
-
-        if(board_mode == game::board::mode::loop_vertical)
-        {
-            if(self.y <= 8)
-                offs[num_offs++] = {0, -nums.dims.height};
-            if(self.y >= (nums.dims.height - 8))
-                offs[num_offs++] = {0, +nums.dims.height};
-        }
-        else if(board_mode == game::board::mode::loop_horizontal)
-        {
-            if(self.x <= 8)
-                offs[num_offs++] = {-nums.dims.width, 0};
-            if(self.x >= (nums.dims.width - 8))
-                offs[num_offs++] = {+nums.dims.width, 0};
-        }
-        else if(board_mode == game::board::mode::loop_both)
-        {
-            if(self.y <= 8 && self.x <= 8)
-            {
-                offs[num_offs++] = {-nums.dims.width, -nums.dims.height};
-            }
-            if(self.y <= 8 && self.x >= (nums.dims.width - 8))
-            {
-                offs[num_offs++] = {nums.dims.width, -nums.dims.height};
-            }
-            if(self.y >= (nums.dims.height - 8) && self.x <= 8)
-            {
-                offs[num_offs++] = {-nums.dims.width, nums.dims.height};
-            }
-            if(self.y >= (nums.dims.height - 8) && self.x >= (nums.dims.width - 8))
-            {
-                offs[num_offs++] = {nums.dims.width, nums.dims.height};
-            }
-            if(self.x <= 8)
-            {
-                offs[num_offs++] = {-nums.dims.width, 0};
-            }
-            if(self.x >= (nums.dims.width - 8))
-            {
-                offs[num_offs++] = {+nums.dims.width, 0};
-            }
-            if(self.y <= 8)
-            {
-                offs[num_offs++] = {0, -nums.dims.height};
-            }
-            if(self.y >= (nums.dims.height - 8))
-            {
-                offs[num_offs++] = {0, +nums.dims.height};
-            }
-        }
-
         C3D_Mtx modelcopy;
         Mtx_Copy(&modelcopy, &modelView);
-        for(int i = 0; i < num_offs; ++i)
+
+        if(board_mode == game::board::mode::regular)
         {
-            Mtx_Copy(&modelView, &modelcopy);
-            const auto& pt = offs[i];
-            Mtx_Translate(&modelView, pt.width, 0.0f, pt.height, true);
+            if(point_count_margin)
+            {
+                C3D_SetBufInfo(&game_config->data.board_margin_vbo_buf);
+                C3D_DrawArrays(GPU_TRIANGLES, 0, point_count_margin);
+            }
+            C3D_SetBufInfo(&game_config->data.board_vbo_buf);
+            C3D_DrawArrays(GPU_TRIANGLES, 0, point_count);
+        }
+        else
+        {
+            game::board::numbers::size offs[4];
+            int num_offs = 0;
+
+            if(board_mode == game::board::mode::loop_vertical)
+            {
+                if(self.y <= 8)
+                    offs[num_offs++] = {0, -nums.dims.height};
+                if(self.y >= (nums.dims.height - 8))
+                    offs[num_offs++] = {0, +nums.dims.height};
+            }
+            else if(board_mode == game::board::mode::loop_horizontal)
+            {
+                if(self.x <= 8)
+                    offs[num_offs++] = {-nums.dims.width, 0};
+                if(self.x >= (nums.dims.width - 8))
+                    offs[num_offs++] = {+nums.dims.width, 0};
+            }
+            else if(board_mode == game::board::mode::loop_both)
+            {
+                if(self.y <= 8 && self.x <= 8)
+                {
+                    offs[num_offs++] = {-nums.dims.width, -nums.dims.height};
+                }
+                if(self.y <= 8 && self.x >= (nums.dims.width - 8))
+                {
+                    offs[num_offs++] = {nums.dims.width, -nums.dims.height};
+                }
+                if(self.y >= (nums.dims.height - 8) && self.x <= 8)
+                {
+                    offs[num_offs++] = {-nums.dims.width, nums.dims.height};
+                }
+                if(self.y >= (nums.dims.height - 8) && self.x >= (nums.dims.width - 8))
+                {
+                    offs[num_offs++] = {nums.dims.width, nums.dims.height};
+                }
+                if(self.x <= 8)
+                {
+                    offs[num_offs++] = {-nums.dims.width, 0};
+                }
+                if(self.x >= (nums.dims.width - 8))
+                {
+                    offs[num_offs++] = {+nums.dims.width, 0};
+                }
+                if(self.y <= 8)
+                {
+                    offs[num_offs++] = {0, -nums.dims.height};
+                }
+                if(self.y >= (nums.dims.height - 8))
+                {
+                    offs[num_offs++] = {0, +nums.dims.height};
+                }
+            }
+
+            for(int i = 0; i < num_offs; ++i)
+            {
+                Mtx_Copy(&modelView, &modelcopy);
+                const auto& pt = offs[i];
+                Mtx_Translate(&modelView, pt.width, 0.0f, pt.height, true);
+                if(fog)
+                {
+                    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[1], &modelView);
+                }
+                else if(drop)
+                {
+                    C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[2], &modelView);
+                }
+
+                if(point_count_margin)
+                {
+                    C3D_SetBufInfo(&game_config->data.board_margin_vbo_buf);
+                    C3D_DrawArrays(GPU_TRIANGLES, 0, point_count_margin);
+                }
+
+                C3D_SetBufInfo(&game_config->data.board_vbo_buf);
+                C3D_DrawArrays(GPU_TRIANGLES, 0, point_count);
+            }
+        }
+
+        if(point_count_cursors)
+        {
             if(fog)
             {
-                C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[1], &modelView);
+                C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[1], &modelcopy);
+                C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[2], 1.0f, 1.0f, 1.0f, 1.0f);
             }
             else if(drop)
             {
-                C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[2], &modelView);
+                C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[2], &modelcopy);
+                C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[3], 1.0f, 0.5f, 0.5f, 1.0f);
             }
-            C3D_DrawArrays(GPU_TRIANGLES, 0, point_count);
-        }
 
-        if(fog)
-        {
-            C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[1], &modelcopy);
-            C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[2], 1.0f, 0.5f, 0.5f, 1.0f);
-        }
-        else if(drop)
-        {
-            C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[2], &modelcopy);
-            C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[3], 1.0f, 0.5f, 0.5f, 1.0f);
-        }
+            game_config->data.sheet_cursors->bind(0);
 
-        C3D_SetBufInfo(&game_config->data.board_cursors_vbo_buf);
-        C3D_DrawArrays(GPU_TRIANGLES, 0, (game::room::MAX_PLAYERS) * 6);
+            C3D_SetBufInfo(&game_config->data.board_cursors_vbo_buf);
+            C3D_DrawArrays(GPU_TRIANGLES, 0, point_count_cursors);
+        }
     };
 
     const float iod = gfx.stereo();

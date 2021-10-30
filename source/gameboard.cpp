@@ -76,7 +76,7 @@ game::board::numbers game::board::get_numbers_info() const
     return {{actual_width, actual_height}, mine_count};
 }
 
-int game::board::reset(const numbers& nums, const mode board_mode, const std::time_t seed_value)
+std::pair<int, int> game::board::reset(const numbers& nums, const mode board_mode, const std::time_t seed_value)
 {
     cells.fill(cell{});
 
@@ -509,7 +509,7 @@ int game::board::initial_render()
 }
 */
 
-int game::board::initial_render()
+std::pair<int, int> game::board::initial_render()
 {
     constexpr auto negate_dir = [](const direction d) -> direction {
         return {-d.x, -d.y, -d.z};
@@ -534,14 +534,24 @@ int game::board::initial_render()
     constexpr direction dir_nz = negate_dir(dir_z);
 
     int idx = 0;
+    int idx_margin = 0;
+
+    const auto set_render_tile = [&](const buffer_point::pos& center, const float tex_num, const direction& dir_a,  const direction& dir_b)
+    {
+        this->set_render_tile(idx, this->render_buffer, center, tex_num, dir_a, dir_b);
+    };
+    const auto set_margin_tile = [&](int x, int y)
+    {
+        this->set_render_tile(idx_margin, this->margin_buffer, {x + 0.5f, -1.0f, y + 0.5f}, 12, dir_x, dir_z);
+    };
 
     if(!(current_board_mode == mode::loop_vertical || current_board_mode == mode::loop_both))
     {
         for(int x = 0; x < actual_width; ++x)
         {
-            set_render_tile(idx, {x + 0.5f, -0.5f, float(actual_height)}, 12, dir_nx, dir_ny);
+            set_render_tile({x + 0.5f, -0.5f, float(actual_height)}, 13, dir_nx, dir_ny);
             ++idx;
-            set_render_tile(idx, {x + 0.5f, -0.5f, 0.0f}, 12, dir_x, dir_ny);
+            set_render_tile({x + 0.5f, -0.5f, 0.0f}, 13, dir_x, dir_ny);
             ++idx;
         }
     }
@@ -550,10 +560,74 @@ int game::board::initial_render()
     {
         for(int y = 0; y < actual_height; ++y)
         {
-            set_render_tile(idx, {0.0f, -0.5f, y + 0.5f}, 12, dir_nz, dir_ny);
+            set_render_tile({0.0f, -0.5f, y + 0.5f}, 13, dir_nz, dir_ny);
             ++idx;
-            set_render_tile(idx, {float(actual_width), -0.5f, y + 0.5f}, 12, dir_z, dir_ny);
+            set_render_tile({float(actual_width), -0.5f, y + 0.5f}, 13, dir_z, dir_ny);
             ++idx;
+        }
+    }
+
+    if(current_board_mode != mode::loop_both)
+    {
+        bool do_corners = true;
+        bool do_tb = true;
+        bool do_lr = true;
+        switch(current_board_mode)
+        {
+        case mode::loop_vertical:
+            do_tb = false;
+            do_corners = false;
+            break;
+        case mode::loop_horizontal:
+            do_lr = false;
+            do_corners = false;
+            break;
+        default:
+            break;
+        }
+
+        if(do_corners)
+        {
+            for(int y = 0; y < VERT_MARGIN; ++y)
+            {
+                for(int x = 0; x < HORI_MARGIN; ++x)
+                {
+                    set_margin_tile(x - HORI_MARGIN, y - VERT_MARGIN);
+                    ++idx_margin;
+                    set_margin_tile(x - HORI_MARGIN, y + actual_height);
+                    ++idx_margin;
+                    set_margin_tile(x + actual_width, y - VERT_MARGIN);
+                    ++idx_margin;
+                    set_margin_tile(x + actual_width, y + actual_height);
+                    ++idx_margin;
+                }
+            }
+        }
+        if(do_tb)
+        {
+            for(int y = 0; y < VERT_MARGIN; ++y)
+            {
+                for(int x = 0; x < actual_width; ++x)
+                {
+                    set_margin_tile(x, y - VERT_MARGIN);
+                    ++idx_margin;
+                    set_margin_tile(x, y + actual_height);
+                    ++idx_margin;
+                }
+            }
+        }
+        if(do_lr)
+        {
+            for(int y = 0; y < actual_height; ++y)
+            {
+                for(int x = 0; x < HORI_MARGIN; ++x)
+                {
+                    set_margin_tile(x - HORI_MARGIN, y);
+                    ++idx_margin;
+                    set_margin_tile(x + actual_width, y);
+                    ++idx_margin;
+                }
+            }
         }
     }
 
@@ -563,23 +637,24 @@ int game::board::initial_render()
     {
         for(int x = 0; x < actual_width; ++x)
         {
-            set_render_tile(idx, {x + 0.5f, -1.0f, y + 0.5f}, 9, dir_x, dir_z);
+            set_render_tile({x + 0.5f, -1.0f, y + 0.5f}, 9, dir_x, dir_z);
             ++idx;
         }
     }
 
-    return idx;
+    return {idx, idx_margin};
 }
 
-game::board::board(buffer_point* const render_output)
+game::board::board(buffer_point* const render_output, buffer_point* const margin_output)
     : render_buffer(render_output)
+    , margin_buffer(margin_output)
 {
 
 }
 
-static constexpr float tex_mul = (32.0f / 512.0f);
+static constexpr float tex_mul = (64.0f / 1024.0f);
 
-void game::board::set_render_tile(int index, const buffer_point::pos& center, const float tex_num, const direction& dir_a,  const direction& dir_b)
+void game::board::set_render_tile(int index, buffer_point* const buf, const buffer_point::pos& center, const float tex_num, const direction& dir_a,  const direction& dir_b)
 {
     index *= 6;
     const float ul = tex_num * tex_mul;
@@ -629,12 +704,12 @@ void game::board::set_render_tile(int index, const buffer_point::pos& center, co
         }
     };
 
-    render_buffer[index++] = tr;
-    render_buffer[index++] = tl;
-    render_buffer[index++] = bl;
-    render_buffer[index++] = tr;
-    render_buffer[index++] = bl;
-    render_buffer[index++] = br;
+    buf[index++] = tr;
+    buf[index++] = tl;
+    buf[index++] = bl;
+    buf[index++] = tr;
+    buf[index++] = bl;
+    buf[index++] = br;
 }
 
 void game::board::update_render_tile_uv(int index, const float tex_num)
@@ -671,10 +746,10 @@ void game::board::update_render_tile_uv(int index, const float tex_num)
 #include <3ds/types.h>
 #include <c3d/maths.h>
 
-void game::board::fill_cursor_positions(std::span<game::player> players, buffer_point* const cursors_output)
+int game::board::fill_cursor_positions(std::span<game::player> players, buffer_point* const cursors_output)
 {
     int index = 0;
-    const auto set_cursor = [&index, cursors_output](const buffer_point::pos& center, bool present)
+    const auto set_cursor = [&index, cursors_output](const buffer_point::pos& center)
     {
         constexpr direction dir_a{
             0.5f + __FLT_EPSILON__,
@@ -687,8 +762,8 @@ void game::board::fill_cursor_positions(std::span<game::player> players, buffer_
             0.5f + __FLT_EPSILON__,
         };
 
-        const float ul = (present ? 13 : 15) * tex_mul;
-        const float ur = ul + tex_mul;
+        const float ul = 0.25f;
+        const float ur = ul + 0.25f;
         const buffer_point tl{
             {
                 center.x - dir_a.x - dir_b.x,
@@ -746,9 +821,7 @@ void game::board::fill_cursor_positions(std::span<game::player> players, buffer_
     {
         if(!p.on_map || p.pitch < 18.0f)
         {
-no_cursor:
             p.cursor.reset();
-            set_cursor({0, 0, 0}, false);
             continue;
         }
 
@@ -771,9 +844,9 @@ no_cursor:
             );
             const C3D_FVec hit = FVec3_Add(ray_pos, ray_vector);
             p.cursor = {int(hit.x), int(hit.z)};
-            set_cursor({p.cursor->x + 0.5f, -1.0f + 0.0625f / 32.0f, p.cursor->y + 0.5f}, true);
-            continue;
+            set_cursor({p.cursor->x + 0.5f, -(1.0f - 0.0625f), p.cursor->y + 0.5f});
         }
-        goto no_cursor;
     }
+
+    return index;
 }
