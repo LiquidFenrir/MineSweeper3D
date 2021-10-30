@@ -3,6 +3,7 @@
 
 #include "ctrhid.h"
 #include "ctrgfx.h"
+#include "ctraudio.h"
 #include "gameconfig.h"
 #include "debugging.h"
 #include <span>
@@ -28,7 +29,7 @@ struct scenes : public std::enable_shared_from_this<scenes> {
     static scene_ptr get_default_scene();
 
     using next_scene = std::optional<scene_ptr>;
-    virtual next_scene update(const ctr::hid& input, const double dt) = 0;
+    virtual next_scene update(const ctr::hid& input, ctr::audio& audio, const double dt) = 0;
     virtual void tick([[maybe_unused]] const double dt) { } // override if the scene needs to animate during a transition, for example
 
     virtual void draw(ctr::gfx& gfx) = 0;
@@ -131,7 +132,7 @@ struct scene_menu {
         return current_entry;
     }
 
-    bool react(T& source, const ctr::hid& input, const decltype(game::config::config_data::keymap_menu)& key_mapping)
+    bool react(T& source, const ctr::hid& input, ctr::audio& audio, const decltype(game::config::config_data::keymap_menu)& key_mapping)
     {
         using key_usage = decltype(game::config::config_data::keymap_menu)::key_usage;
         const auto& entry = *current_entry;
@@ -157,7 +158,12 @@ struct scene_menu {
             {
                 if(auto new_entry = v(source, entry))
                 {
+                    audio.play_sfx("selection_move", 3);
                     jump_to(source, new_entry);
+                }
+                else
+                {
+                    audio.play_sfx("selection_click", 2);
                 }
                 return true;
             }

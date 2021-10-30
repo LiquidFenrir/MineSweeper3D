@@ -31,9 +31,26 @@ This version of the game is licensed under the GPLv3.
 
 ## Credits
 
+### Graphics
+
 - `gfx/menus/room_coop.png` is licensed under the [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.en) and made by Font Awesome Free 5.2.0 by @fontawesome - https://fontawesome.com
 - `gfx/menus/room_team.png` and `gfx/menus/room_br.png` are made by [Freepik](https://www.freepik.com) from [www.flaticon.com](https://www.flaticon.com/)
 - the images in the `gfx/ingame/sheet_3D_cursors.png` spritesheet are from [OpenGameArt.org](https://opengameart.org/) and licensed under the [CC0](https://creativecommons.org/publicdomain/)
 
+### Audio
+
+- `romfs/sfx/explosion.ogg` is [deleted_user_5405837 on freesound](https://freesound.org/people/deleted_user_5405837/sounds/399303/) and under the [CC-BY 3.0 license](https://creativecommons.org/licenses/by/3.0/)
+- `romfs/sfx/reveal.ogg` is a remix of [this beep by kwahmah_02 on freesound](https://freesound.org/people/kwahmah_02/sounds/246332/) also under the [CC-BY 3.0](https://creativecommons.org/licenses/by/3.0/)
+- `romfs/sfx/intro.ogg` is a remix of:
+  - `explosion.ogg` mentioned above
+  - `reveal.ogg` mentioned above
+- `romfs/sfx/place_flag.ogg` is [this from freesound](https://freesound.org/people/qubodup/sounds/171939/) under the [CC0 license](https://creativecommons.org/publicdomain/)
+- `romfs/sfx/remove_flag.ogg` is [this from freesound](https://freesound.org/people/martian/sounds/19291/) under the [CC0 license](https://creativecommons.org/publicdomain/)
+- `romfs/sfx/victory.ogg` is [this from freesound](https://freesound.org/people/FunWithSound/sounds/456966/) under the [CC0 license](https://creativecommons.org/publicdomain/)
+- `romfs/bgm/menus.ogg` is [gamesssssss by Music for your projects](https://www.jamendo.com/track/1326000/gamesssssss) under the [CC-BY-NC 4.0] modified to loop in a better way
+
+### Libraries
+
+All the maintainers and contributors of [{fmt}](https://github.com/fmtlib/fmt), since the standard equivalent is not yet ready in gcc 11 I copied the 8.0.1 release under `third-party/fmt`  
 Many thanks to the [libctru](https://github.com/smealum/ctrulib/), [citro3d](https://github.com/fincs/citro3d/), and [citro2d](https://github.com/devkitPro/citro2d/) maintainers and contributors for the amazing libraries.  
 Even more thanks to fincs specifically for the 3ds examples of using citro3d, they were a lot of help!

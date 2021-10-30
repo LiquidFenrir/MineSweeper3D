@@ -321,7 +321,7 @@ scenes::room_setup_scene::room_setup_scene(bool multi)
 
     top_text[0] = gen.parse("Choose the board!\nHeight, width and\nmine percentage.");
     top_text[1] = gen.parse("Choose the board!\nNormal, or looping?");
-    top_text[2] = gen.parse("Check all is fine.");
+    top_text[2] = gen.parse("Make sure your\nsettings are fine!");
     back_text = gen.parse("BACK");
     ok_text = gen.parse("OK");
 
@@ -644,27 +644,29 @@ void scenes::room_setup_scene::prepare_starting()
     self.y = numbers.dims.height / 2.0f;
     auto nums = numbers;
     nums.mines = (nums.mines * nums.dims.height * nums.dims.width) / 100;
-    set_next_scene_to(::scenes::transition_scene::create(get_ptr(), ::scenes::playing_scene::create(nums, board_mode, 0)));
+    // set_next_scene_to(::scenes::transition_scene::create(get_ptr(), ::scenes::playing_scene::create(nums, board_mode, 0)));
+    set_next_scene_to(::scenes::playing_scene::create(nums, board_mode, 0));
 }
 
-game::scenes::next_scene scenes::room_setup_scene::update(const ctr::hid& input, const double dt)
+game::scenes::next_scene scenes::room_setup_scene::update(const ctr::hid& input, ctr::audio& audio, const double dt)
 {
     bool should_handle_keys = true;
     switch(tab_index)
     {
     case 0:
-        should_handle_keys = !tab_numbers_buttons.react(*this, input, menu);
+        should_handle_keys = !tab_numbers_buttons.react(*this, input, audio, menu);
         break;
     case 1:
-        should_handle_keys = !tab_type_buttons.react(*this, input, menu);
+        should_handle_keys = !tab_type_buttons.react(*this, input, audio, menu);
         break;
     case 2:
-        should_handle_keys = !tab_final_buttons.react(*this, input, menu);
+        should_handle_keys = !tab_final_buttons.react(*this, input, audio, menu);
         break;
     }
 
     if(should_handle_keys)
-        menu.react(*this, input, game_config->conf.keymap_menu);
+        menu.react(*this, input, audio, game_config->conf.keymap_menu);
+    
     if(next)
     {
         auto out = std::move(*next);
@@ -684,8 +686,13 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
     constexpr u32 shadow_color = C2D_Color32f(0.375f, 0.375f, 0.375f, 1.0f);
     constexpr u32 text_color = C2D_Color32f(0, 0, 0, 1);
 
-    C2D_DrawText(&top_text[tab_index], C2D_AlignCenter | C2D_WithColor, 200.0f + 2, 120.0f - 12 + 2, 0.25f, 1.0f, 1.0f, shadow_color);
-    C2D_DrawText(&top_text[tab_index], C2D_AlignCenter | C2D_WithColor, 200.0f, 120.0f - 12, 0.5f, 1.0f, 1.0f, text_color);
+    const auto top_txt = &top_text[tab_index];
+    float topTextH = 0.0f;
+    C2D_TextGetDimensions(top_txt, 1.0f, 1.0f, nullptr, &topTextH);
+    topTextH *= 0.5f;
+
+    C2D_DrawText(top_txt, C2D_AlignCenter | C2D_WithColor, 200.0f + 2, (240 - topTextH)/2.0f + 2, 0.25f, 1.0f, 1.0f, shadow_color);
+    C2D_DrawText(top_txt, C2D_AlignCenter | C2D_WithColor, 200.0f, (240 - topTextH)/2.0f, 0.5f, 1.0f, 1.0f, text_color);
 
     C2D_Flush();
     gfx.get_screen(GFX_BOTTOM)->focus();

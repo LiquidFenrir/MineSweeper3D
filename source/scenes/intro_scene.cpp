@@ -164,11 +164,7 @@ scenes::intro_scene::intro_scene()
 {
     clear_color_bottom = ctr::gfx::color{0,0,0,0xff};
 
-    auto& menu_sheet = game_config->data.menu_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/menu_sprites.t3x"));
-    game_config->data.top_bg_full = menu_sheet.get_image(menu_sprites_top_screen_background_idx);
-    game_config->data.bottom_bg_full = menu_sheet.get_image(menu_sprites_bottom_screen_background_idx);
-
-    auto& sheet = game_config->data.intro_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/intro_sprites.t3x"));
+    auto& sheet = *game_config->data.intro_sheet;
     dev_logo = sheet.get_image(intro_sprites_logo_dev_idx);
     for(int i = 0; i < 14; ++i)
     {
@@ -179,19 +175,12 @@ scenes::intro_scene::intro_scene()
     }
 }
 
-game::scenes::next_scene scenes::intro_scene::update(const ctr::hid& input, const double dt)
+game::scenes::next_scene scenes::intro_scene::update(const ctr::hid& input, ctr::audio& audio, const double dt)
 {
     if(input.pressed().any())
     {
 main_menu:
-        game_config->data.ingame_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/ingame_sprites.t3x"));
-        // game_config->data.text_font_big.emplace("romfs:/gfx/PixelOperatorMono8-Bold_18.bcfnt");
-        game_config->data.text_font_small.emplace("romfs:/gfx/PixelOperatorMono8-Bold_12.bcfnt");
-        // game_config->data.static_text_gen.emplace(1024, &*game_config->data.text_font_big); // reset on scene entry
-        // game_config->data.dynamic_text_gen.emplace(1024, &*game_config->data.text_font_big); // reset every frame
-        game_config->data.static_small_text_gen.emplace(1024, &*game_config->data.text_font_small); // reset on scene entry
-        game_config->data.dynamic_small_text_gen.emplace(1024, &*game_config->data.text_font_small); // reset every frame
-
+        // audio.play_sfx("", 1);
         return ::scenes::main_menu_scene::create();
     }
 
@@ -200,6 +189,9 @@ main_menu:
     {
         any_changed |= modifiers[i](letter_sprites[i].pt, frame, i);
     }
+
+    if(frame == 0)
+        audio.play_sfx("intro", 1);
 
     ++frame;
     if(any_changed)
@@ -228,5 +220,22 @@ void scenes::intro_scene::draw(ctr::gfx& gfx)
 
 game::scenes::scene_ptr game::scenes::get_default_scene()
 {
-    return ::scenes::intro_scene::create();
+    game_config->data.ingame_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/ingame_sprites.t3x"));
+    // game_config->data.text_font_big.emplace("romfs:/gfx/PixelOperatorMono8-Bold_18.bcfnt");
+    game_config->data.text_font_small.emplace("romfs:/gfx/PixelOperatorMono8-Bold_12.bcfnt");
+    // game_config->data.static_text_gen.emplace(1024, &*game_config->data.text_font_big); // reset on scene entry
+    // game_config->data.dynamic_text_gen.emplace(1024, &*game_config->data.text_font_big); // reset every frame
+    game_config->data.static_small_text_gen.emplace(1024, &*game_config->data.text_font_small); // reset on scene entry
+    game_config->data.dynamic_small_text_gen.emplace(1024, &*game_config->data.text_font_small); // reset every frame
+
+    auto& menu_sheet = game_config->data.menu_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/menu_sprites.t3x"));
+    game_config->data.top_bg_full = menu_sheet.get_image(menu_sprites_top_screen_background_idx);
+    game_config->data.bottom_bg_full = menu_sheet.get_image(menu_sprites_bottom_screen_background_idx);
+
+    game_config->data.intro_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/intro_sprites.t3x"));
+
+    if(game_config->conf.skip_intro)
+        return ::scenes::main_menu_scene::create();
+    else
+        return ::scenes::intro_scene::create();
 }

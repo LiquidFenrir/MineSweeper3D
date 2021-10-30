@@ -7,7 +7,7 @@
 namespace scenes {
 
 START_SCENE(main_menu_scene)
-    next_scene update(const ctr::hid& input, const double dt) override final;
+    next_scene update(const ctr::hid& input, ctr::audio& audio, const double dt) override final;
     void draw(ctr::gfx& gfx) override final;
 
     struct letter {
@@ -41,6 +41,7 @@ private:
     button_page_<3> buttons;
 
     game::button::parts button_parts, selected_button_parts;
+    bool start_bgm;
 END_SCENE
 
 }

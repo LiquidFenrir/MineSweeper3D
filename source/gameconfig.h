@@ -149,6 +149,9 @@ struct config {
         axis camera_y_axis, camera_x_axis;
         key_map<menu_settings> keymap_menu;
         key_map<game_settings> keymap_game;
+        bool enable_music{true};
+        bool enable_sfx{true};
+        bool skip_intro{false};
     };
     config_data conf;
 

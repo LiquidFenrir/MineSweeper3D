@@ -42,7 +42,7 @@ static constexpr std::size_t pattern_index_to_image[] = {
     this->clear_color_top = scene_before->clear_color_top;
 }
 
-game::scenes::next_scene scenes::transition_scene::update(const ctr::hid& input, const double dt)
+game::scenes::next_scene scenes::transition_scene::update(const ctr::hid& input, ctr::audio& audio, const double dt)
 {
     
     if(input.pressed().any())
@@ -94,7 +94,7 @@ void scenes::transition_scene::draw(ctr::gfx& gfx)
         }
     };
 
-    const int frames_per_col = 4;
+    const int frames_per_col = 3;
     auto qr = std::div(frame, frames_per_col);
     const auto dims = gfx.get_screen_dimensions(GFX_TOP);
     const int q = ((dims.width - 320)/2)/cell_size;

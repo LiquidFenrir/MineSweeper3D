@@ -22,8 +22,8 @@ struct fog {
 static fog f{
     1.0f,
     2.0f,
-    0.001f,
-    12.0f,
+    0.0000625f,
+    20.0f,
 };
 }
 
@@ -33,7 +33,7 @@ scenes::playing_scene::playing_scene(game::board::numbers n, game::board::mode b
     , self{game_config->data.players[self_idx]}
 {
     clear_color_top = ctr::gfx::color{0x00, 0x94, 0xff, 0xff};
-    std::tie(point_count, point_count_margin) = game_config->data.game_board->reset(nums, board_mode, 0);
+    std::tie(point_count, point_count_margin) = game_config->data.game_board->reset(nums, board_mode, /* time(nullptr) */ 1635612353);
     point_count *= 6;
     point_count_margin *= 6;
     point_count_cursors = 0;
@@ -50,10 +50,10 @@ scenes::playing_scene::playing_scene(game::board::numbers n, game::board::mode b
     FogLut_Exp(&game_config->data.fog_lut, foggy::f.den, foggy::f.gra, foggy::f.near, foggy::f.far);
 }
 
-game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, const double dt)
+game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, ctr::audio& audio, const double dt)
 {
     constexpr float MV_SPEED = 0.002f;
-    constexpr float ROT_SPEED = 0.0005f;
+    constexpr float ROT_SPEED = 0.00075f;
 
     bool any_change = false;
     const auto advance = [&](const float rad) {
@@ -193,15 +193,40 @@ game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, co
         case key_usage::flag:
             if(pressed.check(key) && self.cursor)
             {
-                if(game_config->data.game_board->flag_at({self.cursor->x, self.cursor->y}))
+                if(auto res = game_config->data.game_board->flag_at({self.cursor->x, self.cursor->y}); res.first)
+                {
                     GSPGPU_FlushDataCache(game_config->data.board_vbo.get(), point_count * sizeof(game::board::buffer_point));
+                    if(res.second)
+                    {
+                        audio.play_sfx("place_flag", 6);
+                    }
+                    else
+                    {
+                        audio.play_sfx("remove_flag", 7);
+                    }
+                }
             }
             break;
         case key_usage::reveal:
             if(pressed.check(key) && self.cursor)
             {
                 if(game_config->data.game_board->reveal_at({self.cursor->x, self.cursor->y}))
+                {
                     GSPGPU_FlushDataCache(game_config->data.board_vbo.get(), point_count * sizeof(game::board::buffer_point));
+                    const auto state = game_config->data.game_board->get_current_state();
+                    if(state == game::board::state::lost)
+                    {
+                        audio.play_sfx("explosion", 1);
+                    }
+                    else if(state == game::board::state::won)
+                    {
+                        audio.play_sfx("victory", 4);
+                    }
+                    else
+                    {
+                        audio.play_sfx("reveal", 5);
+                    }
+                }
             }
             break;
         }
@@ -327,8 +352,9 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
         }
         else
         {
-            game::board::numbers::size offs[4];
-            int num_offs = 0;
+            game::board::numbers::size offs[5];
+            int num_offs = 1;
+            offs[0] = {0, 0};
 
             if(board_mode == game::board::mode::loop_vertical)
             {

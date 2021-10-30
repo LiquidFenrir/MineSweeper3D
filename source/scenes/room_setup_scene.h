@@ -7,7 +7,7 @@
 namespace scenes {
 
 START_SCENE(room_setup_scene)
-    next_scene update(const ctr::hid& input, const double dt) override final;
+    next_scene update(const ctr::hid& input, ctr::audio& audio, const double dt) override final;
     void draw(ctr::gfx& gfx) override final;
 
     void now_at(const int entry_index, const int tab_index);
@@ -45,7 +45,6 @@ private:
     C2D_Image board_imgs[2][2];
     game::board::numbers numbers;
     game::board::mode board_mode;
-
 END_SCENE
 
 }

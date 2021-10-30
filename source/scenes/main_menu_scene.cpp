@@ -128,6 +128,7 @@ static const menu_structure_t menu_structure = []() {
 scenes::main_menu_scene::main_menu_scene()
     : menu(menu_structure.entries[0])
     , entry_index{0}
+    , start_bgm{true}
 {
     auto& gen = game_config->data.static_small_text_gen->get_active_buf();
     gen.clear();
@@ -190,7 +191,7 @@ scenes::main_menu_scene::main_menu_scene()
         "SETTINGS",
         "EXIT",
     };
-    
+
     for(auto& but : buttons.buttons)
     {
         but.depth = depth;
@@ -217,10 +218,15 @@ void scenes::main_menu_scene::set_next_scene_to(scene_ptr ptr)
     next = std::move(ptr);
 }
 
-game::scenes::next_scene scenes::main_menu_scene::update(const ctr::hid& input, const double dt)
+game::scenes::next_scene scenes::main_menu_scene::update(const ctr::hid& input, ctr::audio& audio, const double dt)
 {
-    if(!buttons.react(*this, input, menu))
-        menu.react(*this, input, game_config->conf.keymap_menu);
+    if(start_bgm)
+    {
+        start_bgm = false;
+        audio.play_bgm("menus", true);
+    }
+    if(!buttons.react(*this, input, audio, menu))
+        menu.react(*this, input, audio, game_config->conf.keymap_menu);
     if(next)
     {
         auto out = std::move(*next);

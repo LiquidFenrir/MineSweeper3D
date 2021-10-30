@@ -78,6 +78,7 @@ game::board::numbers game::board::get_numbers_info() const
 
 std::pair<int, int> game::board::reset(const numbers& nums, const mode board_mode, const std::time_t seed_value)
 {
+    debugging::log("resetting board with W/H/M {}/{}/{}, mode {} and seed: {}\n", nums.dims.width, nums.dims.height, nums.mines, int(board_mode), seed_value);
     cells.fill(cell{});
 
     unsigned char seed_bytes[sizeof(seed_value)];
@@ -183,34 +184,7 @@ void game::board::initialize_mines(location pos)
     }
 }
 
-// iterative flood fill algorithm
-// span filler from wikipedia
-/*
-fn fill(x, y):
-  if not Inside(x, y) then return
-  let s = new empty stack or queue
-  add (x, y) to s
-  while s is not empty:
-    Remove an (x, y) from s
-    let lx = x
-    while Inside(lx - 1, y):
-      Set(lx - 1, y)
-      lx = lx - 1
-    while Inside(x, y):
-      Set(x, y)
-      x = x + 1
-    scan(lx, x - 1, y + 1, s)
-    scan(lx, x - 1, y - 1, s)
-
-fn scan(lx, rx, y, s):
-  let added = false
-  for x in lx .. rx:
-    if not Inside(x, y):
-      added = false
-    else if not added:
-      Add (x, y) to s
-      added = true
-*/
+// depth first search from v1 but with a stack instead of recursion
 void game::board::visit_all_adjacent_empty(location pos)
 {
     int stack_size = 0;
@@ -227,92 +201,81 @@ void game::board::visit_all_adjacent_empty(location pos)
     {
     case mode::regular:
         x_min = 0;
-        x_max = actual_width;
+        x_max = actual_width - 1;
         y_min = 0;
-        y_max = actual_height;
+        y_max = actual_height - 1;
         break;
     case mode::loop_vertical:
         x_min = 0;
-        x_max = actual_width;
+        x_max = actual_width - 1;
         break;
     case mode::loop_horizontal:
         y_min = 0;
-        y_max = actual_height;
+        y_max = actual_height - 1;
         break;
     case mode::loop_both:
         break;
     }
 
-    const auto inside = [&](location p) -> std::pair<cell*, bool>
-    {
-        if(x_min && *x_min > p.x) return std::make_pair(nullptr, false);
-        if(x_max && *x_max <= p.x) return std::make_pair(nullptr, false);
-        if(y_min && *y_min > p.y) return std::make_pair(nullptr, false);
-        if(x_max && *x_max <= p.y) return std::make_pair(nullptr, false);
-
-        cell* const cell_ptr = &get_cell({p.x - 1, p.y - 1});
-        return std::make_pair(cell_ptr, cell_ptr->st != cell::state::revealed && cell_ptr->content >= 0);
-    };
-
-    const auto set = [this, cells_ptr = cells.data()](cell& c) -> void
-    {
-        c.st = cell::state::revealed;
-        update_render_tile_uv(render_buffer_tiles_offset + ptrdiff_t(&c - cells_ptr), c.content);
-    };
-
-    const auto scan = [&](int lx, int rx, int y)
-    {
-        bool added = false;
-        for(int x = lx; x <= rx; ++x)
-        {
-            if(!inside({x, y}).second)
-            {
-                added = false;
-            }
-            else if(!added)
-            {
-                push({x, y});
-            }
-        }
-    };
-
     push(pos);
-    /*
-    while s is not empty:
-        Remove an (x, y) from s
-        let lx = x
-        while Inside(lx - 1, y):
-            Set(lx - 1, y)
-            lx = lx - 1
-        while Inside(x, y):
-            Set(x, y)
-            x = x + 1
-        scan(lx, x - 1, y + 1, s)
-        scan(lx, x - 1, y - 1, s)
-    */
     while(stack_size)
     {
-        auto [x, y] = pop();
-        auto lx = x;
-        std::pair<cell*, bool> tmp{nullptr, false};
-        while((tmp = inside({lx - 1, y})).second)
+        pos = pop();
+        auto& c = get_cell(pos);
+        if(c.st == cell::state::revealed)
+            continue;
+
+        c.st = cell::state::revealed;
+        update_render_tile_uv(ptrdiff_t(&c - cells.data()) + render_buffer_tiles_offset, c.content);
+        if(c.content != 0)
+            continue;
+
+        const bool ok_x_min = !(x_min && pos.x == *x_min);
+        const bool ok_x_max = !(x_max && pos.x == *x_max);
+        const bool ok_y_min = !(y_min && pos.y == *y_min);
+        const bool ok_y_max = !(y_max && pos.y == *y_max);
+        #define MOD_POS(dx, dy) {pos.x + (dx), pos.y + (dy)}
+        if(ok_x_min && ok_y_min)
         {
-            set(*tmp.first);
-            lx--;
+            push(MOD_POS(-1, -1));
         }
-        while((tmp = inside({x, y})).second)
+        if(ok_y_min)
         {
-            set(*tmp.first);
-            x++;
+            push(MOD_POS(0, -1));
         }
-        scan(lx, x-1, y+1);
-        scan(lx, x-1, y-1);
+        if(ok_x_max && ok_y_min)
+        {
+            push(MOD_POS(+1, -1));
+        }
+        if(ok_x_max)
+        {
+            push(MOD_POS(+1, 0));
+        }
+        if(ok_x_max && ok_y_max)
+        {
+            push(MOD_POS(+1, +1));
+        }
+        if(ok_y_max)
+        {
+            push(MOD_POS(0, +1));
+        }
+        if(ok_x_min && ok_y_max)
+        {
+            push(MOD_POS(-1, +1));
+        }
+        if(ok_x_min)
+        {
+            push(MOD_POS(-1, 0));
+        }
+        #undef MOD_POS
     }
-    
 }
 
 bool game::board::reveal_at(location pos)
 {
+    if(current_state == state::lost || current_state == state::won)
+        return false;
+
     if(auto& cell = get_cell(pos); cell.st == cell::state::none)
     {
         if(get_current_state() == state::viewing)
@@ -324,7 +287,7 @@ bool game::board::reveal_at(location pos)
         if(cell.content < 0)
         {
             switch_to_state(state::lost);
-            for(auto& board_cell : cells)
+            for(auto& board_cell : std::span(cells.data(), actual_width * actual_height))
             {
                 if(board_cell.content < 0)
                 {
@@ -332,6 +295,7 @@ bool game::board::reveal_at(location pos)
                     board_cell.st = cell::state::exploded;
                 }
             }
+            return true;
         }
         // clicked a cell adjacent to a mine, reveal that one only
         else if(cell.content > 0)
@@ -342,31 +306,42 @@ bool game::board::reveal_at(location pos)
         // clicked a safe cell, reveal all the safe area and edge
         else
         {
-            visit_all_adjacent_empty({pos.x + 1, pos.y + 1});
+            visit_all_adjacent_empty({pos.x, pos.y});
         }
+
+        // check victory:
+        for(const auto& board_cell : std::span(cells.data(), actual_width * actual_height))
+        {
+            if(board_cell.content >= 0 && board_cell.st != cell::state::revealed)
+            {
+                return true;
+            }
+        }
+        switch_to_state(state::won);
         return true;
     }
     return false;
 }
 
-bool game::board::flag_at(location pos)
+std::pair<bool, bool> game::board::flag_at(location pos)
 {
-    if(auto& cell = get_cell(pos); get_current_state() == state::playing)
+    if(get_current_state() == state::playing)
     {
+        auto& cell = get_cell(pos);
         if(cell.st == cell::state::none)
         {
             cell.st = cell::state::flagged;
             update_render_tile_uv(ptrdiff_t(&cell - cells.data()) + render_buffer_tiles_offset, 10);
-            return true;
+            return {true, true};
         }
         else if(cell.st == cell::state::flagged)
         {
             cell.st = cell::state::none;
             update_render_tile_uv(ptrdiff_t(&cell - cells.data()) + render_buffer_tiles_offset, 9);
-            return true;
+            return {true, false};
         }
     }
-    return false;
+    return {false, false};
 }
 
 game::board::cell& game::board::get_cell(location pos)

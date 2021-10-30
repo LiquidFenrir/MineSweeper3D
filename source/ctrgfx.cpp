@@ -17,8 +17,8 @@ gfx::gfx(const screen_mode mode)
     , bottom_target{nullptr}
 {
     gfxInitDefault();
-    C3D_Init(C3D_DEFAULT_CMDBUF_SIZE);
-    C2D_Init(C2D_DEFAULT_MAX_OBJECTS);
+    C3D_Init(C3D_DEFAULT_CMDBUF_SIZE * 4);
+    C2D_Init(C2D_DEFAULT_MAX_OBJECTS * 4);
 
     switch(mode)
     {

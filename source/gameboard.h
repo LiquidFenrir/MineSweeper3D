@@ -28,11 +28,11 @@ struct board {
 
     static inline constexpr int MIN_WIDTH = 10;
     static inline constexpr int MIN_HEIGHT = 10;
-    static inline constexpr int MIN_PERCENT = 20;
+    static inline constexpr int MIN_PERCENT = 7;
 
     static inline constexpr int MAX_WIDTH = 99;
     static inline constexpr int MAX_HEIGHT = 99;
-    static inline constexpr int MAX_PERCENT = 35;
+    static inline constexpr int MAX_PERCENT = 22;
 
     static inline constexpr int HORI_MARGIN = 10;
     static inline constexpr int VERT_MARGIN = 10;
@@ -59,7 +59,7 @@ struct board {
     bool reveal_at(location pos);
 
     // returns true if the click changed anything
-    bool flag_at(location pos);
+    std::pair<bool, bool> flag_at(location pos);
 
     enum state {
         viewing,

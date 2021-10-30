@@ -30,7 +30,7 @@ template<class T, std::size_t N>
 struct button_page {
     menu_button<T> buttons[N];
 
-    bool react(T& source, const ctr::hid& input, game::scene_menu<T>& associated_menu)
+    bool react(T& source, const ctr::hid& input, ctr::audio& audio, game::scene_menu<T>& associated_menu)
     {
         if(input.touch_active())
         {
@@ -46,10 +46,15 @@ struct button_page {
                             {
                                 goto change_entry;
                             }
+                            else
+                            {
+                                audio.play_sfx("selection_click", 2);
+                            }
                         }
                         else
                         {
 change_entry:
+                            audio.play_sfx("selection_move", 3);
                             associated_menu.jump_to(source, ent);
                         }
                     }

@@ -72,8 +72,9 @@ CXXFLAGS	:= $(CFLAGS) -fno-rtti -std=gnu++20
 
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=3dsx.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
+LDFLAGS	+=	 -Wl,--wrap=linearAlloc
 
-LIBS	:= -lconfig++ -lpng -lz
+LIBS	:= -lconfig++ -lvorbisidec -logg -lpng -lz
 ifeq ($(strip $(NODEBUGGING)),)
 LIBS	+=	-lcitro2dd -lcitro3dd -lctrud
 else

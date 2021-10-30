@@ -47,7 +47,7 @@ public:
     template<class F, typename... Args>
     thread(const meta& info, F&& func, Args&&... args)
     {
-        using P_t = std::pair<std::tuple<Args...>, F&&>;
+        using P_t = std::pair<std::tuple<Args...>, F>;
         auto arg = std::make_unique<P_t>(
             std::tuple<Args...>(std::forward<Args>(args)...),
             std::forward<F>(func)
@@ -57,8 +57,21 @@ public:
     }
 
     thread() = default;
-    thread(thread&&) = default;
+
+    thread(thread&& other)
+        : m_th(std::exchange(other.m_th, nullptr))
+    {
+        
+    }
+    thread& operator=(thread&& other)
+    {
+        if(joinable()) throw std::runtime_error("Moving to a thread already running.");
+        m_th = std::exchange(other.m_th, nullptr);
+        return *this;
+    }
+
     thread(const thread&) = delete;
+    thread& operator=(const thread&) = delete;
 
     ~thread()
     {
@@ -75,7 +88,7 @@ public:
 
     bool joinable() const noexcept
     {
-        return m_th != threadGetCurrent();
+        return m_th;
     }
 
     Thread get_id()
