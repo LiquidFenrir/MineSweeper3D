@@ -114,6 +114,7 @@ struct board {
     int fill_cursor_positions(std::span<game::player> players, buffer_point* const cursors_output);
     void dump(const char* filename);
 
+    int get_cell_content_index(location pos);
 private:
     std::pair<int, int> initial_render();
 

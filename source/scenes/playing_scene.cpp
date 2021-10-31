@@ -1,7 +1,7 @@
 #include "playing_scene.h"
 #include "transition_scene.h"
 #include "main_menu_scene.h"
-// #include "game_finish_scene.h"
+#include "ingame_sprites.h"
 #include "../debugging.h"
 #include <algorithm>
 
@@ -31,6 +31,8 @@ scenes::playing_scene::playing_scene(game::board::numbers n, game::board::mode b
     : nums{n}
     , board_mode{b}
     , self{game_config->data.players[self_idx]}
+    , stop_music{true}
+    , selected_tab{0}
 {
     clear_color_top = ctr::gfx::color{0x00, 0x94, 0xff, 0xff};
     std::tie(point_count, point_count_margin) = game_config->data.game_board->reset(nums, board_mode, /* time(nullptr) */ 1635612353);
@@ -48,10 +50,47 @@ scenes::playing_scene::playing_scene(game::board::numbers n, game::board::mode b
     debugging::log("point_count: {}\n", point_count);
     debugging::log("point_count_margin: {}\n", point_count_margin);
     FogLut_Exp(&game_config->data.fog_lut, foggy::f.den, foggy::f.gra, foggy::f.near, foggy::f.far);
+
+    auto& sheet = *game_config->data.ingame_sheet;
+    bottom_screen_background_img = sheet.get_image(ingame_sprites_bottom_screen_background_idx);
+    normal_tab_img = sheet.get_image(ingame_sprites_game_closed_tab_idx);
+    selected_tab_img = sheet.get_image(ingame_sprites_game_open_tab_idx);
+    tab_icons[0] = sheet.get_image(ingame_sprites_game_minimap_tab_icon_idx);
+    tab_icons[1] = sheet.get_image(ingame_sprites_game_teams_tab_icon_idx);
+    tab_icons[2] = sheet.get_image(ingame_sprites_game_numbers_tab_icon_idx);
+    minimap_cover = sheet.get_image(ingame_sprites_minimap_tab_overlay_idx);
+    no_minimap_img = sheet.get_image(ingame_sprites_minimap_disabled_idx);
+    player_indicator = sheet.get_image(ingame_sprites_minimap_player_indicator_idx);
+    const std::size_t idxs[] = {
+        ingame_sprites_cell_open_idx,
+        ingame_sprites_cell_1_idx,
+        ingame_sprites_cell_2_idx,
+        ingame_sprites_cell_3_idx,
+        ingame_sprites_cell_4_idx,
+        ingame_sprites_cell_5_idx,
+        ingame_sprites_cell_6_idx,
+        ingame_sprites_cell_7_idx,
+        ingame_sprites_cell_8_idx,
+        ingame_sprites_cell_hide_idx,
+        ingame_sprites_cell_flag_idx,
+        ingame_sprites_cell_mine_idx,
+    };
+    for(int i = 0; i < 12; ++i)
+    {
+        minimap_imgs[i] = sheet.get_image(idxs[i]);
+    }
+    grass_img = sheet.get_image(ingame_sprites_grass_idx);
+    cursor_img = sheet.get_image(ingame_sprites_cursor_idx);
 }
 
 game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, ctr::audio& audio, const double dt)
 {
+    if(stop_music)
+    {
+        stop_music = false;
+        audio.play_bgm();
+    }
+
     constexpr float MV_SPEED = 0.002f;
     constexpr float ROT_SPEED = 0.00075f;
 
@@ -227,6 +266,18 @@ game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, ct
                         audio.play_sfx("reveal", 5);
                     }
                 }
+            }
+            break;
+        case key_usage::tab_prev:
+            if(pressed.check(key))
+            {
+                selected_tab = (selected_tab + 3 - 1) % 3;
+            }
+            break;
+        case key_usage::tab_next:
+            if(pressed.check(key))
+            {
+                selected_tab = (selected_tab + 1) % 3;
             }
             break;
         }
@@ -406,6 +457,28 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
                 }
             }
 
+            if(point_count_margin)
+            {
+                C3D_SetBufInfo(&game_config->data.board_margin_vbo_buf);
+                for(int i = 0; i < num_offs; ++i)
+                {
+                    Mtx_Copy(&modelView, &modelcopy);
+                    const auto& pt = offs[i];
+                    Mtx_Translate(&modelView, pt.width, 0.0f, pt.height, true);
+                    if(fog)
+                    {
+                        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[1], &modelView);
+                    }
+                    else if(drop)
+                    {
+                        C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[2], &modelView);
+                    }
+
+                    C3D_DrawArrays(GPU_TRIANGLES, 0, point_count_margin);
+                }
+            }
+
+            C3D_SetBufInfo(&game_config->data.board_vbo_buf);
             for(int i = 0; i < num_offs; ++i)
             {
                 Mtx_Copy(&modelView, &modelcopy);
@@ -420,13 +493,6 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
                     C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[2], &modelView);
                 }
 
-                if(point_count_margin)
-                {
-                    C3D_SetBufInfo(&game_config->data.board_margin_vbo_buf);
-                    C3D_DrawArrays(GPU_TRIANGLES, 0, point_count_margin);
-                }
-
-                C3D_SetBufInfo(&game_config->data.board_vbo_buf);
                 C3D_DrawArrays(GPU_TRIANGLES, 0, point_count);
             }
         }
@@ -471,5 +537,91 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
 
     gfx.get_screen(GFX_BOTTOM, GFX_LEFT)->focus();
     gfx.render_2d();
-    C2D_DrawRectSolid(20,20,0,20,20, C2D_Color32f(1,0,1,1));
+
+    C2D_DrawImageAt(bottom_screen_background_img, 0, 0, 0);
+    for(int i = 0; i < 3; ++i)
+    {
+        const int x = 106 * i;
+        const int y = 0;
+        C2D_DrawImageAt((i == selected_tab) ? selected_tab_img : normal_tab_img, x, y, 0.0625f);
+        C2D_DrawImageAt(tab_icons[i], x + 33, y + 3, 0.125f);
+    }
+
+    switch(selected_tab)
+    {
+    case 0:
+        if(game_config->conf.enable_minimap)
+        {
+            C2D_Flush();
+            C3D_SetScissor(GPU_SCISSOR_NORMAL, 10, 80, 173, 240);
+
+            std::optional<int> x_min, x_max, y_min, y_max;
+            switch(board_mode)
+            {
+            case game::board::mode::regular:
+                x_min = 0;
+                x_max = nums.dims.width;
+                y_min = 0;
+                y_max = nums.dims.height;
+                break;
+            case game::board::mode::loop_vertical:
+                x_min = 0;
+                x_max = nums.dims.width;
+                break;
+            case game::board::mode::loop_horizontal:
+                y_min = 0;
+                y_max = nums.dims.height;
+                break;
+            case game::board::mode::loop_both:
+                break;
+            }
+
+            for(int dy = -5; dy <= +5; ++dy)
+            {
+                game::board::location pos;
+                pos.y = self.y + dy;
+                const bool ok_y_min = !(y_min && pos.y < *y_min);
+                const bool ok_y_max = !(y_max && pos.y >= *y_max);
+                for(int dx = -5; dx <= +5; ++dx)
+                {
+                    pos.x = self.x + dx;
+                    const bool ok_x_min = !(x_min && pos.x < *x_min);
+                    const bool ok_x_max = !(x_max && pos.x >= *x_max);
+                    const bool all_ok = (ok_y_min + ok_y_max + ok_x_min + ok_x_max) == 4;
+                    C2D_Image* img = &grass_img;
+                    if(all_ok)
+                    {
+                        const int cell_idx = game_config->data.game_board->get_cell_content_index(pos);
+                        if(cell_idx >= 0)
+                            img = &minimap_imgs[cell_idx];
+                    }
+                    C2D_DrawImageAt(*img, 160 + (pos.x - self.x) * 20, 50 + 95 + (pos.y - self.y) * 20, 0.0625f);
+                }
+            }
+
+            if(self.cursor)
+            {
+                game::board::location pos;
+                pos.x = self.cursor->x;
+                pos.y = self.cursor->y;
+                const bool ok_y_min = !(y_min && pos.y < *y_min);
+                const bool ok_y_max = !(y_max && pos.y >= *y_max);
+                const bool ok_x_min = !(x_min && pos.x < *x_min);
+                const bool ok_x_max = !(x_max && pos.x >= *x_max);
+                const bool all_ok = (ok_y_min + ok_y_max + ok_x_min + ok_x_max) == 4;
+                if(all_ok)
+                    C2D_DrawImageAt(cursor_img, 160 + (pos.x - self.x) * 20, 50 + 95 + (pos.y - self.y) * 20, 0.125f);
+            }
+
+            C2D_DrawImageAtRotated(player_indicator, 160, 50 + 95, 0.125f + 0.0625f / 2.0f, C3D_AngleFromDegrees(self.yaw));
+            C2D_Flush();
+            C3D_SetScissor(GPU_SCISSOR_DISABLE, 0, 0, 240, 320);
+        }
+        else
+        {
+            C2D_DrawImageAt(no_minimap_img, 80, 50 + 19, 0.0625f);
+        }
+        C2D_DrawImageAt(minimap_cover, 0, 50, 0.1875f);
+        break;
+    }
 }

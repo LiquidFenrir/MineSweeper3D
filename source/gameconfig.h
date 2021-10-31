@@ -129,6 +129,8 @@ struct config {
             camera,
             flag,
             reveal,
+            tab_prev,
+            tab_next,
         };
 
         static key_map<game_settings>::key_map::keys default_map();
@@ -152,6 +154,7 @@ struct config {
         bool enable_music{true};
         bool enable_sfx{true};
         bool skip_intro{false};
+        bool enable_minimap{true};
     };
     config_data conf;
 

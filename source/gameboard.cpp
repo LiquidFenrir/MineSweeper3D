@@ -344,6 +344,23 @@ std::pair<bool, bool> game::board::flag_at(location pos)
     return {false, false};
 }
 
+int game::board::get_cell_content_index(location pos)
+{
+    const auto& c = get_cell(pos);
+    switch(c.st)
+    {
+    case cell::state::revealed:
+        return c.content;
+    case cell::state::flagged:
+        return 10;
+    case cell::state::none:
+        return 9;
+    case cell::state::exploded:
+        return 11;
+    }
+    return -1;
+}
+
 game::board::cell& game::board::get_cell(location pos)
 {
     return cells[((pos.x + actual_width) % actual_width) + ((pos.y + actual_height) % actual_height) * actual_width];
@@ -819,7 +836,7 @@ int game::board::fill_cursor_positions(std::span<game::player> players, buffer_p
             );
             const C3D_FVec hit = FVec3_Add(ray_pos, ray_vector);
             p.cursor = {int(hit.x), int(hit.z)};
-            set_cursor({p.cursor->x + 0.5f, -(1.0f - 0.0625f), p.cursor->y + 0.5f});
+            set_cursor({p.cursor->x + 0.5f, -(1.0f - 0.0625f/16.0f), p.cursor->y + 0.5f});
         }
     }
 

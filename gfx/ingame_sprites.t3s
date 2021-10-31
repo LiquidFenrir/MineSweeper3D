@@ -1,15 +1,15 @@
 --atlas -f rgba8 -z auto
+ingame/bottom_screen_background.png
 ingame/minimap_player_indicator.png
 ingame/minimap_disabled.png
+ingame/minimap_tab_overlay.png
 ingame/game_closed_tab.png
 ingame/game_open_tab.png
 ingame/game_minimap_tab_icon.png
 ingame/game_teams_tab_icon.png
 ingame/game_numbers_tab_icon.png
+ingame/cursor.png
 ingame/grass.png
-ingame/cell_flag.png
-ingame/cell_mine.png
-ingame/cell_hide.png
 ingame/cell_open.png
 ingame/cell_1.png
 ingame/cell_2.png
@@ -19,3 +19,6 @@ ingame/cell_5.png
 ingame/cell_6.png
 ingame/cell_7.png
 ingame/cell_8.png
+ingame/cell_hide.png
+ingame/cell_flag.png
+ingame/cell_mine.png

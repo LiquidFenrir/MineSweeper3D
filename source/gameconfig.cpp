@@ -119,4 +119,6 @@ DEFAULT_KEY_MAP_CREATE(game_settings, {
     out.button_b = usage::reveal;
     out.button_x = usage::flag;
     out.button_y = usage::flag;
+    out.shoulder_l = usage::tab_prev;
+    out.shoulder_r = usage::tab_next;
 })

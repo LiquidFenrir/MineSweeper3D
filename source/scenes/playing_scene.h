@@ -20,6 +20,14 @@ private:
     game::board::numbers nums;
     game::board::mode board_mode;
     game::player& self;
+    bool stop_music;
+    int selected_tab;
+    C2D_Image bottom_screen_background_img;
+    C2D_Image normal_tab_img, selected_tab_img;
+    C2D_Image minimap_cover, no_minimap_img, player_indicator;
+    C2D_Image tab_icons[3];
+    C2D_Image minimap_imgs[12];
+    C2D_Image grass_img, cursor_img;
 END_SCENE
 
 }
