@@ -2,6 +2,7 @@
 #include "main_menu_scene.h"
 #include "intro_sprites.h"
 #include "menu_sprites.h"
+#include "ingame_sprites.h"
 #include <span>
 #include <ranges>
 #include <utility>
@@ -213,14 +214,13 @@ void scenes::intro_scene::draw(ctr::gfx& gfx)
     {
         C2D_DrawImage(img, &pt.draw_params, &pt.tint);
     }
-    C2D_Flush();
     gfx.get_screen(GFX_BOTTOM)->focus();
     C2D_DrawImageAt(dev_logo, (320 - dev_logo.subtex->width)/2, (240 - dev_logo.subtex->height)/2, 0);
 }
 
 game::scenes::scene_ptr game::scenes::get_default_scene()
 {
-    game_config->data.ingame_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/ingame_sprites.t3x"));
+    auto& ingame = game_config->data.ingame_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/ingame_sprites.t3x"));
     // game_config->data.text_font_big.emplace("romfs:/gfx/PixelOperatorMono8-Bold_18.bcfnt");
     game_config->data.text_font_small.emplace("romfs:/gfx/PixelOperatorMono8-Bold_12.bcfnt");
     // game_config->data.static_text_gen.emplace(1024, &*game_config->data.text_font_big); // reset on scene entry
@@ -231,6 +231,26 @@ game::scenes::scene_ptr game::scenes::get_default_scene()
     auto& menu_sheet = game_config->data.menu_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/menu_sprites.t3x"));
     game_config->data.top_bg_full = menu_sheet.get_image(menu_sprites_top_screen_background_idx);
     game_config->data.bottom_bg_full = menu_sheet.get_image(menu_sprites_bottom_screen_background_idx);
+
+    auto& team_icons = game_config->data.team_icons;
+    team_icons[0] = ingame.get_image(ingame_sprites_team_icon_1_idx);
+    team_icons[1] = ingame.get_image(ingame_sprites_team_icon_2_idx);
+    team_icons[2] = ingame.get_image(ingame_sprites_team_icon_3_idx);
+    team_icons[3] = ingame.get_image(ingame_sprites_team_icon_4_idx);
+    team_icons[4] = ingame.get_image(ingame_sprites_team_icon_5_idx);
+    team_icons[5] = ingame.get_image(ingame_sprites_team_icon_6_idx);
+    team_icons[6] = ingame.get_image(ingame_sprites_team_icon_7_idx);
+    team_icons[7] = ingame.get_image(ingame_sprites_team_icon_8_idx);
+
+    auto& colors = game_config->data.player_colors;
+    colors[0] = {0, 0, 0, 0xff};
+    colors[1] = {0xff, 0, 0, 0xff};
+    colors[2] = {0, 0xff, 0, 0xff};
+    colors[3] = {0, 0, 0xff, 0xff};
+    colors[4] = {0xff, 0xff, 0, 0xff};
+    colors[5] = {0xff, 0, 0xff, 0xff};
+    colors[6] = {0, 0xff, 0xff, 0xff};
+    colors[7] = {0xff, 0xff, 0xff, 0xff};
 
     game_config->data.intro_sheet.emplace(C2D_SpriteSheetLoad("romfs:/gfx/intro_sprites.t3x"));
 

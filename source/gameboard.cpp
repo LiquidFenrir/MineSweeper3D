@@ -738,7 +738,41 @@ void game::board::update_render_tile_uv(int index, const float tex_num)
 #include <3ds/types.h>
 #include <c3d/maths.h>
 
-int game::board::fill_cursor_positions(std::span<game::player> players, buffer_point* const cursors_output)
+
+
+void game::board::fill_cursor_positions(std::span<game::player> players, const int self_id)
+{
+    for(auto& p : players)
+    {
+        if(p.team_id != self_id || p.pitch < 18.0f)
+        {
+            p.cursor.reset();
+            continue;
+        }
+
+        const float pitch = C3D_AngleFromDegrees(p.pitch);
+        const float yaw = C3D_AngleFromDegrees(p.yaw);
+
+        const float dist = 1.0f/std::tan(pitch);
+
+        if(dist < 4.375f)
+        {
+            const C3D_FVec ray_vector = FVec3_New(
+                dist * std::sin(yaw),
+                0.0f,
+                dist * -std::cos(yaw)
+            );
+            const C3D_FVec ray_pos = FVec3_New(
+                p.x,
+                0.0f,
+                p.y
+            );
+            const C3D_FVec hit = FVec3_Add(ray_pos, ray_vector);
+            p.cursor = {int(hit.x), int(hit.z)};
+        }
+    }
+}
+int game::board::fill_cursor_render_buffer(buffer_point* const cursors_output)
 {
     int index = 0;
     const auto set_cursor = [&index, cursors_output](const buffer_point::pos& center)
@@ -808,37 +842,6 @@ int game::board::fill_cursor_positions(std::span<game::player> players, buffer_p
         cursors_output[index++] = bl;
         cursors_output[index++] = br;
     };
-
-    for(auto& p : players)
-    {
-        if(!p.on_map || p.pitch < 18.0f)
-        {
-            p.cursor.reset();
-            continue;
-        }
-
-        const float pitch = C3D_AngleFromDegrees(p.pitch);
-        const float yaw = C3D_AngleFromDegrees(p.yaw);
-
-        const float dist = 1.0f/std::tan(pitch);
-
-        if(dist < 5.0f)
-        {
-            const C3D_FVec ray_vector = FVec3_New(
-                dist * std::sin(yaw),
-                0.0f,
-                dist * -std::cos(yaw)
-            );
-            const C3D_FVec ray_pos = FVec3_New(
-                p.x,
-                0.0f,
-                p.y
-            );
-            const C3D_FVec hit = FVec3_Add(ray_pos, ray_vector);
-            p.cursor = {int(hit.x), int(hit.z)};
-            set_cursor({p.cursor->x + 0.5f, -(1.0f - 0.0625f/16.0f), p.cursor->y + 0.5f});
-        }
-    }
-
+    set_cursor({0.0f, -(1.0f - 0.0625f/16.0f), 0.0f});
     return index;
 }

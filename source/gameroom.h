@@ -44,6 +44,7 @@ private:
 
 struct room {
     static constexpr inline int MAX_PLAYERS = 8;
+    static constexpr inline int MAX_TEAMS = MAX_PLAYERS;
     room(const basic_room& to_join, std::optional<std::string_view> password);
     room(const room_info& info, std::optional<std::string_view> password);
     ~room();

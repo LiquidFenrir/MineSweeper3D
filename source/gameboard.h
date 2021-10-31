@@ -28,11 +28,11 @@ struct board {
 
     static inline constexpr int MIN_WIDTH = 10;
     static inline constexpr int MIN_HEIGHT = 10;
-    static inline constexpr int MIN_PERCENT = 7;
+    static inline constexpr int MIN_PERCENT = 10;
 
     static inline constexpr int MAX_WIDTH = 99;
     static inline constexpr int MAX_HEIGHT = 99;
-    static inline constexpr int MAX_PERCENT = 22;
+    static inline constexpr int MAX_PERCENT = 25;
 
     static inline constexpr int HORI_MARGIN = 10;
     static inline constexpr int VERT_MARGIN = 10;
@@ -111,7 +111,8 @@ struct board {
     struct direction {
         float x, y, z;
     };
-    int fill_cursor_positions(std::span<game::player> players, buffer_point* const cursors_output);
+    void fill_cursor_positions(std::span<game::player> players, const int self_id);
+    int fill_cursor_render_buffer(buffer_point* const cursors_output);
     void dump(const char* filename);
 
     int get_cell_content_index(location pos);

@@ -638,14 +638,19 @@ void scenes::room_setup_scene::prepare_starting()
     }
 
     game_config->data.players.fill({});
+    game_config->data.teams.fill({});
+
     auto& self = game_config->data.players[0];
-    self.on_map = true;
+    self.team_id = 1;
+    self.color_index = 7;
     self.x = numbers.dims.width / 2.0f;
     self.y = numbers.dims.height / 2.0f;
+
+    game_config->data.teams[self.team_id - 1].current_state = game::team::state::playing;
+
     auto nums = numbers;
     nums.mines = (nums.mines * nums.dims.height * nums.dims.width) / 100;
-    // set_next_scene_to(::scenes::transition_scene::create(get_ptr(), ::scenes::playing_scene::create(nums, board_mode, 0)));
-    set_next_scene_to(::scenes::playing_scene::create(nums, board_mode, 0));
+    set_next_scene_to(::scenes::transition_scene::create(get_ptr(), ::scenes::playing_scene::create(nums, board_mode, 0)));
 }
 
 game::scenes::next_scene scenes::room_setup_scene::update(const ctr::hid& input, ctr::audio& audio, const double dt)
@@ -694,7 +699,6 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
     C2D_DrawText(top_txt, C2D_AlignCenter | C2D_WithColor, 200.0f + 2, (240 - topTextH)/2.0f + 2, 0.25f, 1.0f, 1.0f, shadow_color);
     C2D_DrawText(top_txt, C2D_AlignCenter | C2D_WithColor, 200.0f, (240 - topTextH)/2.0f, 0.5f, 1.0f, 1.0f, text_color);
 
-    C2D_Flush();
     gfx.get_screen(GFX_BOTTOM)->focus();
     C2D_DrawImageAt(game_config->data.bottom_bg_full, 0, 0, 0);
 
@@ -705,7 +709,7 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
     {
     case 0:
         {
-        for(auto& button : tab_numbers_buttons.buttons)
+        for(const auto& button : tab_numbers_buttons.buttons)
         {
             button.draw((button.associated_menu_entry && button.associated_menu_entry->entry_index == entry_index) ? selected_button_parts : button_parts);
         }
@@ -726,25 +730,25 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
         {
             for(int x = 0; x < 4; ++x)
             {
-                auto& but = tab_numbers_buttons.buttons[y * 4 + x];
+                const auto& but = tab_numbers_buttons.buttons[y * 4 + x];
                 switch(x)
                 {
                 case 0:
                     {
-                    auto& im = imgs[y];
+                    const auto& im = imgs[y];
                     C2D_DrawImageAt(im, but.x + (but.w - im.subtex->width)/2, but.y + (but.h - im.subtex->height)/2, but.depth + 0.0625f);
                     }
                     break;
                 case 1:
                     {
-                    auto& im = minus_img;
+                    const auto& im = minus_img;
                     C2D_DrawImageAt(im, but.x + (but.w - im.subtex->width)/2, but.y + (but.h - im.subtex->height)/2, but.depth + 0.0625f);
                     }
                     break;
                 case 2:
                     {
                         float textH = 0.0f;
-                        auto txt = &txts[y];
+                        const auto txt = &txts[y];
                         C2D_TextGetDimensions(txt, 1.0f, 1.0f, nullptr, &textH);
                         textH *= 0.5f;
                         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2 + 2, but.y + (but.h - textH)/2 + 2, but.depth + 0.0625f, 1.0f, 1.0f, shadow_color);
@@ -753,7 +757,7 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
                     break;
                 case 3:
                     {
-                    auto& im = plus_img;
+                    const auto& im = plus_img;
                     C2D_DrawImageAt(im, but.x + (but.w - im.subtex->width)/2, but.y + (but.h - im.subtex->height)/2, but.depth + 0.0625f);
                     }
                     break;
@@ -761,18 +765,18 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
             }
         }
         {
-        auto& but = tab_numbers_buttons.buttons[12];
+        const auto& but = tab_numbers_buttons.buttons[12];
         float textH = 0.0f;
-        auto txt = &back_text;
+        const auto txt = &back_text;
         C2D_TextGetDimensions(txt, 1.0f, 1.0f, nullptr, &textH);
         textH *= 0.5f;
         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2 + 2, but.y + (but.h - textH)/2 + 2, but.depth + 0.0625f, 1.0f, 1.0f, shadow_color);
         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2, but.y + (but.h - textH)/2, but.depth + 0.125f, 1.0f, 1.0f, text_color);
         }
         {
-        auto& but = tab_numbers_buttons.buttons[13];
+        const auto& but = tab_numbers_buttons.buttons[13];
         float textH = 0.0f;
-        auto txt = &ok_text;
+        const auto txt = &ok_text;
         C2D_TextGetDimensions(txt, 1.0f, 1.0f, nullptr, &textH);
         textH *= 0.5f;
         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2 + 2, but.y + (but.h - textH)/2 + 2, but.depth + 0.0625f, 1.0f, 1.0f, shadow_color);
@@ -782,7 +786,7 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
         break;
     case 1:
         {
-        for(auto& button : tab_type_buttons.buttons)
+        for(const auto& button : tab_type_buttons.buttons)
         {
             button.draw((button.associated_menu_entry && button.associated_menu_entry->entry_index == entry_index) ? selected_button_parts : button_parts);
         }
@@ -797,24 +801,24 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
         {
             for(int x = 0; x < 2; ++x)
             {
-                auto& but = tab_type_buttons.buttons[y * 2 + x];
-                auto& im = board_imgs[y][x];
+                const auto& but = tab_type_buttons.buttons[y * 2 + x];
+                const auto& im = board_imgs[y][x];
                 C2D_DrawImageAt(im, but.x + (but.w - im.subtex->width)/2, but.y + (but.h - im.subtex->height)/2, but.depth + 0.0625f, img_modes[y][x] == board_mode ? &selected_tint : &tint);
             }
         }
         {
-        auto& but = tab_type_buttons.buttons[4];
+        const auto& but = tab_type_buttons.buttons[4];
         float textH = 0.0f;
-        auto txt = &back_text;
+        const auto txt = &back_text;
         C2D_TextGetDimensions(txt, 1.0f, 1.0f, nullptr, &textH);
         textH *= 0.5f;
         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2 + 2, but.y + (but.h - textH)/2 + 2, but.depth + 0.0625f, 1.0f, 1.0f, shadow_color);
         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2, but.y + (but.h - textH)/2, but.depth + 0.125f, 1.0f, 1.0f, text_color);
         }
         {
-        auto& but = tab_type_buttons.buttons[5];
+        const auto& but = tab_type_buttons.buttons[5];
         float textH = 0.0f;
-        auto txt = &ok_text;
+        const auto txt = &ok_text;
         C2D_TextGetDimensions(txt, 1.0f, 1.0f, nullptr, &textH);
         textH *= 0.5f;
         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2 + 2, but.y + (but.h - textH)/2 + 2, but.depth + 0.0625f, 1.0f, 1.0f, shadow_color);
@@ -824,7 +828,7 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
         break;
     case 2:
         {
-        for(auto& button : tab_final_buttons.buttons)
+        for(const auto& button : tab_final_buttons.buttons)
         {
             button.draw((button.associated_menu_entry && button.associated_menu_entry->entry_index == entry_index) ? selected_button_parts : button_parts);
         }
@@ -840,6 +844,7 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
             &width_text,
             &height_text,
             &mines_text,
+            nullptr,
         };
         C2D_Image imgs[4] = {
             width_img,
@@ -864,9 +869,9 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
 
         for(int b = 0; b < 4; ++b)
         {
-            auto& but = tab_type_buttons.buttons[b];
-            auto& im = imgs[b];
-            auto txt = txts[b];
+            const auto& but = tab_type_buttons.buttons[b];
+            const auto& im = imgs[b];
+            const auto txt = txts[b];
             float textW = 0.0f, textH = 0.0f;
             if(txt)
                 C2D_TextGetDimensions(txt, 1.0f, 1.0f, &textW, &textH);
@@ -880,18 +885,18 @@ void scenes::room_setup_scene::draw(ctr::gfx& gfx)
             }
         }
         {
-        auto& but = tab_type_buttons.buttons[4];
+        const auto& but = tab_type_buttons.buttons[4];
         float textH = 0.0f;
-        auto txt = &back_text;
+        const auto txt = &back_text;
         C2D_TextGetDimensions(txt, 1.0f, 1.0f, nullptr, &textH);
         textH *= 0.5f;
         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2 + 2, but.y + (but.h - textH)/2 + 2, but.depth + 0.0625f, 1.0f, 1.0f, shadow_color);
         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2, but.y + (but.h - textH)/2, but.depth + 0.125f, 1.0f, 1.0f, text_color);
         }
         {
-        auto& but = tab_type_buttons.buttons[5];
+        const auto& but = tab_type_buttons.buttons[5];
         float textH = 0.0f;
-        auto txt = &ok_text;
+        const auto txt = &ok_text;
         C2D_TextGetDimensions(txt, 1.0f, 1.0f, nullptr, &textH);
         textH *= 0.5f;
         C2D_DrawText(txt, C2D_AlignCenter | C2D_WithColor, but.x + but.w/2 + 2, but.y + (but.h - textH)/2 + 2, but.depth + 0.0625f, 1.0f, 1.0f, shadow_color);

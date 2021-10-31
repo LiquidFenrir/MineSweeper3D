@@ -2,6 +2,7 @@
 #include "transition_scene.h"
 #include "main_menu_scene.h"
 #include "ingame_sprites.h"
+#include "menu_sprites.h"
 #include "../debugging.h"
 #include <algorithm>
 
@@ -23,7 +24,7 @@ static fog f{
     1.0f,
     2.0f,
     0.0000625f,
-    20.0f,
+    10.0f,
 };
 }
 
@@ -35,14 +36,16 @@ scenes::playing_scene::playing_scene(game::board::numbers n, game::board::mode b
     , selected_tab{0}
 {
     clear_color_top = ctr::gfx::color{0x00, 0x94, 0xff, 0xff};
-    std::tie(point_count, point_count_margin) = game_config->data.game_board->reset(nums, board_mode, /* time(nullptr) */ 1635612353);
+    std::tie(point_count, point_count_margin) = game_config->data.game_board->reset(nums, board_mode, time(nullptr));
     point_count *= 6;
     point_count_margin *= 6;
-    point_count_cursors = 0;
 
     GSPGPU_FlushDataCache(game_config->data.board_vbo.get(), point_count * sizeof(game::board::buffer_point));
     if(point_count_margin)
         GSPGPU_FlushDataCache(game_config->data.board_margin_vbo.get(), point_count_margin * sizeof(game::board::buffer_point));
+
+    game_config->data.game_board->fill_cursor_render_buffer(static_cast<game::board::buffer_point*>(game_config->data.board_cursors_vbo.get()));
+    GSPGPU_FlushDataCache(game_config->data.board_cursors_vbo.get(), 6 * sizeof(game::board::buffer_point));
 
     Mtx_PerspTilt(&projection, C3D_AngleFromDegrees(50.0f), C3D_AspectRatioTop, 0.01f, 12.0f, false);
 
@@ -81,6 +84,26 @@ scenes::playing_scene::playing_scene(game::board::numbers n, game::board::mode b
     }
     grass_img = sheet.get_image(ingame_sprites_grass_idx);
     cursor_img = sheet.get_image(ingame_sprites_cursor_idx);
+    team_won_img = sheet.get_image(ingame_sprites_team_victory_idx);
+    team_lost_img = sheet.get_image(ingame_sprites_team_exploded_idx);
+    team_playing_img = sheet.get_image(ingame_sprites_team_playing_idx);
+
+    auto& menu_sheet = *game_config->data.menu_sheet;
+    constexpr std::pair<C2D_Image game::button::parts::*, std::size_t> parts_idx[] = {
+        {&game::button::parts::tl, menu_sprites_button_normal_top_left_idx},
+        {&game::button::parts::bl, menu_sprites_button_normal_bottom_left_idx},
+        {&game::button::parts::tr, menu_sprites_button_normal_top_right_idx},
+        {&game::button::parts::br, menu_sprites_button_normal_bottom_right_idx},
+        {&game::button::parts::vl, menu_sprites_button_normal_vertical_left_idx},
+        {&game::button::parts::vr, menu_sprites_button_normal_vertical_right_idx},
+        {&game::button::parts::ht, menu_sprites_button_normal_horizontal_top_idx},
+        {&game::button::parts::hb, menu_sprites_button_normal_horizontal_bottom_idx},
+    };
+    button_parts.inner_color = {0xc0, 0xc0, 0xc0, 0xff};
+    for(const auto& [part, idx] : parts_idx)
+    {
+        button_parts.*part = menu_sheet.get_image(idx);
+    }
 }
 
 game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, ctr::audio& audio, const double dt)
@@ -255,10 +278,12 @@ game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, ct
                     const auto state = game_config->data.game_board->get_current_state();
                     if(state == game::board::state::lost)
                     {
+                        game_config->data.teams[self.team_id - 1].current_state = game::team::state::lost;
                         audio.play_sfx("explosion", 1);
                     }
                     else if(state == game::board::state::won)
                     {
+                        game_config->data.teams[self.team_id - 1].current_state = game::team::state::won;
                         audio.play_sfx("victory", 4);
                     }
                     else
@@ -299,12 +324,21 @@ game::scenes::next_scene scenes::playing_scene::update(const ctr::hid& input, ct
     handle_button(KEY_ZR, key_map.map.trigger_r, 0, -1);
 
     if(held.check(KEY_START)) return ::scenes::transition_scene::create(get_ptr(), ::scenes::main_menu_scene::create());
+    if(input.touch_active())
+    {
+        for(int i = 0; i < 3; ++i)
+        {
+            if(input.touching_offset({u16(i * 106 + 2), 0}, {104, 48}))
+            {
+                selected_tab = i;
+                break;
+            }
+        }
+    }
 
     if(any_change)
     {
-        point_count_cursors = game_config->data.game_board->fill_cursor_positions(game_config->data.players, static_cast<game::board::buffer_point*>(game_config->data.board_cursors_vbo.get()));
-        if(point_count_cursors)
-            GSPGPU_FlushDataCache(game_config->data.board_cursors_vbo.get(), point_count_cursors * sizeof(game::board::buffer_point));
+        game_config->data.game_board->fill_cursor_positions(game_config->data.players, self.team_id);
     }
 
     return std::nullopt;
@@ -344,8 +378,6 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
         C3D_FogLutBind(nullptr);
     }
 
-    game_config->data.sheet_3d->bind(0);
-
     C3D_TexEnv* env = C3D_GetTexEnv(0);
     C3D_TexEnvSrc(env, C3D_Both, GPU_TEXTURE0, GPU_PRIMARY_COLOR);
     C3D_TexEnvFunc(env, C3D_RGB, GPU_MODULATE);
@@ -362,7 +394,6 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
         if(fog)
         {
             Mtx_Identity(&modelView);
-            // Mtx_Translate(&modelView, 0.0f, 0.0f, 0.0f, true);
             Mtx_RotateX(&modelView, C3D_AngleFromDegrees(self.pitch), true);
             Mtx_RotateY(&modelView, C3D_AngleFromDegrees(self.yaw), true);
             Mtx_Translate(&modelView, -self.x, 0.0f, -self.y, true);
@@ -390,6 +421,8 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
 
         C3D_Mtx modelcopy;
         Mtx_Copy(&modelcopy, &modelView);
+
+        game_config->data.sheet_3d->bind(0);
 
         if(board_mode == game::board::mode::regular)
         {
@@ -497,23 +530,28 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
             }
         }
 
-        if(point_count_cursors)
+        C3D_SetBufInfo(&game_config->data.board_cursors_vbo_buf);
+        game_config->data.sheet_cursors->bind(0);
+        for(const auto& player : game_config->data.players)
         {
+            if(player.team_id != self.team_id || !player.cursor) continue;
+
+            const auto color = (C3D_FVec)game_config->data.player_colors[player.color_index];
+            Mtx_Copy(&modelView, &modelcopy);
+            Mtx_Translate(&modelView, player.cursor->x + 0.5f, 0.0f, player.cursor->y + 0.5f, true);
+
             if(fog)
             {
-                C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[1], &modelcopy);
-                C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[2], 1.0f, 1.0f, 1.0f, 1.0f);
+                C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[1], &modelView);
+                C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_basic->uniforms[2], color.x, color.y, color.z, color.w);
             }
             else if(drop)
             {
-                C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[2], &modelcopy);
-                C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[3], 1.0f, 0.5f, 0.5f, 1.0f);
+                C3D_FVUnifMtx4x4(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[2], &modelView);
+                C3D_FVUnifSet(GPU_VERTEX_SHADER, game_config->data.board_shader_drop->uniforms[3], color.x, color.y, color.z, color.w);
             }
 
-            game_config->data.sheet_cursors->bind(0);
-
-            C3D_SetBufInfo(&game_config->data.board_cursors_vbo_buf);
-            C3D_DrawArrays(GPU_TRIANGLES, 0, point_count_cursors);
+            C3D_DrawArrays(GPU_TRIANGLES, 0, 6);
         }
     };
 
@@ -544,16 +582,16 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
         const int x = 106 * i;
         const int y = 0;
         C2D_DrawImageAt((i == selected_tab) ? selected_tab_img : normal_tab_img, x, y, 0.0625f);
-        C2D_DrawImageAt(tab_icons[i], x + 33, y + 3, 0.125f);
+        C2D_DrawImageAt(tab_icons[i], x + 30, y + 1, 0.125f);
     }
 
     switch(selected_tab)
     {
-    case 0:
+    case 0: // minimap
         if(game_config->conf.enable_minimap)
         {
             C2D_Flush();
-            C3D_SetScissor(GPU_SCISSOR_NORMAL, 10, 80, 173, 240);
+            C3D_SetScissor(GPU_SCISSOR_NORMAL, 11, 80, 171, 240);
 
             std::optional<int> x_min, x_max, y_min, y_max;
             switch(board_mode)
@@ -599,21 +637,28 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
                 }
             }
 
-            if(self.cursor)
+            for(auto& player : game_config->data.players)
             {
-                game::board::location pos;
-                pos.x = self.cursor->x;
-                pos.y = self.cursor->y;
-                const bool ok_y_min = !(y_min && pos.y < *y_min);
-                const bool ok_y_max = !(y_max && pos.y >= *y_max);
-                const bool ok_x_min = !(x_min && pos.x < *x_min);
-                const bool ok_x_max = !(x_max && pos.x >= *x_max);
-                const bool all_ok = (ok_y_min + ok_y_max + ok_x_min + ok_x_max) == 4;
-                if(all_ok)
-                    C2D_DrawImageAt(cursor_img, 160 + (pos.x - self.x) * 20, 50 + 95 + (pos.y - self.y) * 20, 0.125f);
-            }
+                if(player.team_id != self.team_id) continue;
 
-            C2D_DrawImageAtRotated(player_indicator, 160, 50 + 95, 0.125f + 0.0625f / 2.0f, C3D_AngleFromDegrees(self.yaw));
+                C2D_ImageTint tint;
+                C2D_PlainImageTint(&tint, u32(game_config->data.player_colors[player.color_index]), 1.0f);
+                if(player.cursor)
+                {
+                    game::board::location pos;
+                    pos.x = player.cursor->x;
+                    pos.y = player.cursor->y;
+                    const bool ok_y_min = !(y_min && pos.y < *y_min);
+                    const bool ok_y_max = !(y_max && pos.y >= *y_max);
+                    const bool ok_x_min = !(x_min && pos.x < *x_min);
+                    const bool ok_x_max = !(x_max && pos.x >= *x_max);
+                    const bool all_ok = (ok_y_min + ok_y_max + ok_x_min + ok_x_max) == 4;
+                    if(all_ok)
+                        C2D_DrawImageAt(cursor_img, 160 + (pos.x - self.x) * 20, 50 + 95 + (pos.y - self.y) * 20, 0.125f, &tint);
+                }
+
+                C2D_DrawImageAtRotated(player_indicator, 160 + (player.x - self.x) * 20, 50 + 95 + (player.y - self.y) * 20, 0.125f + 0.0625f / 2.0f, C3D_AngleFromDegrees(player.yaw), &tint);
+            }
             C2D_Flush();
             C3D_SetScissor(GPU_SCISSOR_DISABLE, 0, 0, 240, 320);
         }
@@ -621,7 +666,47 @@ void scenes::playing_scene::draw(ctr::gfx& gfx)
         {
             C2D_DrawImageAt(no_minimap_img, 80, 50 + 19, 0.0625f);
         }
-        C2D_DrawImageAt(minimap_cover, 0, 50, 0.1875f);
+        // C2D_DrawImageAt(minimap_cover, 0, 50, 0.1875f);
+        break;
+    case 1: // teams info
+        {
+        game::button button;
+        button.depth = 0.0625f;
+        button.w = 76;
+        button.h = 60;
+        for(int i = 0; i < game::room::MAX_TEAMS; ++i)
+        {
+            if(game_config->data.teams[i].current_state == game::team::state::none)
+                continue;
+
+            const int x = 4 + (i % 4) * (button.w + 2);
+            const int y = 60 + (i / 4) * (button.h + 10);
+            button.x = x;
+            button.y = y;
+            button.draw(button_parts);
+            C2D_DrawImageAt(game_config->data.team_icons[i], x + 1, y + 6 + 4, 0.125f);
+            C2D_Image* img = nullptr;
+            switch(game_config->data.teams[i].current_state)
+            {
+            case game::team::state::playing:
+                img = &team_playing_img;
+                break;
+            case game::team::state::lost:
+                img = &team_lost_img;
+                break;
+            case game::team::state::won:
+                img = &team_won_img;
+                break;
+            default:
+                break;
+            }
+
+            if(img)
+                C2D_DrawImageAt(*img, x + 1 + 24 + 1, y + 6, 0.125f);
+        }
+        }
+        break;
+    case 2: // numbers (flags/mines, timer)
         break;
     }
 }

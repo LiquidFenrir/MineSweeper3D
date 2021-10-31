@@ -81,7 +81,6 @@ void scenes::transition_scene::draw(ctr::gfx& gfx)
         break;
     }
 
-    C2D_Flush();
     gfx.render_2d();
     auto& sheet = *game_config->data.ingame_sheet;
 

@@ -176,7 +176,6 @@ void scenes::selection_scene::draw(ctr::gfx& gfx)
     C2D_DrawText(&top_text, C2D_AlignCenter | C2D_WithColor, 200.0f + 2, 120.0f - 12 + 2, 0.25f, 1.0f, 1.0f, shadow_color);
     C2D_DrawText(&top_text, C2D_AlignCenter | C2D_WithColor, 200.0f, 120.0f - 12, 0.5f, 1.0f, 1.0f, text_color);
 
-    C2D_Flush();
     gfx.get_screen(GFX_BOTTOM)->focus();
     C2D_DrawImageAt(game_config->data.bottom_bg_full, 0, 0, 0);
 

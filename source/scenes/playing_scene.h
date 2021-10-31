@@ -2,7 +2,7 @@
 #define GAMESCENE_PLAYING_INC
 
 #include "../gamescene.h"
-#include "../gameboard.h"
+#include "../gamebutton.h"
 
 namespace scenes {
 
@@ -16,7 +16,6 @@ private:
     C3D_Mtx projection;
     int point_count;
     int point_count_margin;
-    int point_count_cursors;
     game::board::numbers nums;
     game::board::mode board_mode;
     game::player& self;
@@ -28,6 +27,8 @@ private:
     C2D_Image tab_icons[3];
     C2D_Image minimap_imgs[12];
     C2D_Image grass_img, cursor_img;
+    C2D_Image team_won_img, team_lost_img, team_playing_img;
+    game::button::parts button_parts;
 END_SCENE
 
 }

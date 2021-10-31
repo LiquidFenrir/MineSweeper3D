@@ -98,22 +98,20 @@ void audio::play_bgm(std::string_view name, bool looping)
             }
 
             music.loop_start = 0;
-            if(looping)
+
+            auto vc = ov_comment(&music.source->vf, -1);
+            for(int i = 0; i < vc->comments; ++i)
             {
-                auto vc = ov_comment(&music.source->vf, -1);
-                for(int i = 0; i < vc->comments; ++i)
+                std::string_view comment(vc->user_comments[i], vc->comment_lengths[i]);
+                constexpr std::string_view looking_for("LOOPSTART=");
+                if(comment.starts_with(looking_for))
                 {
-                    std::string_view comment(vc->user_comments[i], vc->comment_lengths[i]);
-                    constexpr std::string_view looking_for("LOOPSTART=");
-                    if(comment.starts_with(looking_for))
+                    comment.substr(looking_for.size());
+                    if(std::from_chars(comment.data(), comment.data() + comment.size(), music.loop_start, 10).ec != std::errc())
                     {
-                        comment.substr(looking_for.size());
-                        if(std::from_chars(comment.data(), comment.data() + comment.size(), music.loop_start, 10).ec != std::errc())
-                        {
-                            music.loop_start = 0;
-                        }
-                        break;
+                        music.loop_start = 0;
                     }
+                    break;
                 }
             }
 

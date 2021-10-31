@@ -165,6 +165,8 @@ struct config {
     struct common_scene_data {
         std::optional<ctr::gfx::spritesheet> intro_sheet, ingame_sheet, menu_sheet;
         C2D_Image top_bg_full, bottom_bg_full;
+        std::array<C2D_Image, game::room::MAX_TEAMS> team_icons;
+        std::array<ctr::gfx::color, game::room::MAX_PLAYERS> player_colors;
 
         // std::optional<ctr::gfx::font> text_font_big;
         std::optional<ctr::gfx::font> text_font_small;
@@ -217,6 +219,7 @@ struct config {
         std::optional<game::room> joined_room;
         std::optional<game::board> game_board;
         std::array<game::player, game::room::MAX_PLAYERS> players;
+        std::array<game::team, game::room::MAX_TEAMS> teams;
     };
 
     common_scene_data data;

@@ -8,9 +8,9 @@
 namespace game {
 
 struct button {
-    int x, y;
-    float depth;
-    int w, h;
+    int x{}, y{};
+    float depth{};
+    int w{}, h{};
 
     struct parts {
         C2D_Image tl, tr, bl, br;
@@ -22,13 +22,13 @@ struct button {
 };
 template<class T>
 struct menu_button : public button {
-    const game::scene_menu<T>::menu_tab::menu_entry* associated_menu_entry;
-    bool selectable;
+    const game::scene_menu<T>::menu_tab::menu_entry* associated_menu_entry{nullptr};
+    bool selectable{false};
 };
 
 template<class T, std::size_t N>
 struct button_page {
-    menu_button<T> buttons[N];
+    std::array<menu_button<T>, N> buttons;
 
     bool react(T& source, const ctr::hid& input, ctr::audio& audio, game::scene_menu<T>& associated_menu)
     {

@@ -247,7 +247,6 @@ void scenes::main_menu_scene::draw(ctr::gfx& gfx)
         C2D_DrawImage(img, &pt.draw_params, &pt.tint);
     }
 
-    C2D_Flush();
     gfx.get_screen(GFX_BOTTOM)->focus();
     C2D_DrawImageAt(game_config->data.bottom_bg_full, 0, 0, 0);
 

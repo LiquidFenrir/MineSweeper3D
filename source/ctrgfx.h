@@ -34,6 +34,10 @@ struct gfx {
         {
             return C2D_Color32(r, g, b, a);
         }
+        explicit operator C3D_FVec() const
+        {
+            return FVec4_Scale(FVec4_New(r, g, b, a), 1.0f/255.0f);
+        }
 
         u8 r, g, b, a;
     };
@@ -330,8 +334,8 @@ struct gfx {
         if(current_rendering_mode == rendering_mode::citro2d)
         {
             C2D_Flush();
-            current_rendering_mode = rendering_mode::citro3d;
         }
+        current_rendering_mode = rendering_mode::citro3d;
 
         C3D_BindProgram(&using_shader.program);
         C3D_DepthTest(true, GPU_GREATER, GPU_WRITE_ALL);

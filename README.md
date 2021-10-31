@@ -33,9 +33,14 @@ This version of the game is licensed under the GPLv3.
 
 ### Graphics
 
+These may not use the same license as the game. Please don't think they were made by the developer.
+
 - `gfx/menus/room_coop.png` is licensed under the [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/deed.en) and made by Font Awesome Free 5.2.0 by @fontawesome - https://fontawesome.com
 - `gfx/menus/room_team.png` and `gfx/menus/room_br.png` are made by [Freepik](https://www.freepik.com) from [www.flaticon.com](https://www.flaticon.com/)
 - the images in the `gfx/ingame/sheet_3D_cursors.png` spritesheet are from [OpenGameArt.org](https://opengameart.org/) and licensed under the [CC0](https://creativecommons.org/publicdomain/)
+- `gfx/ingame/team_exploded.png` is a downsized image by [OpenIcons on Pixabay](https://pixabay.com/users/openicons-28911/)
+- `gfx/ingame/team_victory.png` is a downsized image by [Khai TranQuang on Pixabay](https://pixabay.com/users/tranquangkhai-718075/)
+- `gfx/ingame/team_playing.png` is a downsized image from [icon-library.com](https://icon-library.com/icon/sand-clock-icon-17.html)
 
 ### Audio
 
